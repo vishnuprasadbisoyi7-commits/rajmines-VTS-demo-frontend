@@ -1,16 +1,15 @@
-import { useEffect, useState } from "react";
+import { API_URLS } from "@shared/constants";
+import { useFetch } from "@shared/hooks";
+import { useCallback } from "react";
 import type { PostModel } from "../types/post.types";
 
 export const usePost = () => {
-  const [posts, setPosts] = useState<PostModel[]>([]);
-  async function getPosts(): Promise<PostModel[]> {
-    const response = await fetch("https://jsonplaceholder.typicode.com/posts");
+  const fetchPosts = useCallback(async (): Promise<PostModel[]> => {
+    const response = await fetch(`${API_URLS.JSON_PLACEHOLDER}/posts`);
     return response.json();
-  }
-
-  useEffect(() => {
-    getPosts().then((posts) => setPosts(posts));
   }, []);
 
-  return { posts };
+  const { data: posts, loading, error, refetch } = useFetch<PostModel[]>(fetchPosts);
+
+  return { posts: posts ?? [], loading, error, refetch };
 };

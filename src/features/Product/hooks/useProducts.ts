@@ -1,16 +1,15 @@
-import { useEffect, useState } from "react";
+import { API_URLS } from "@shared/constants";
+import { useFetch } from "@shared/hooks";
+import { useCallback } from "react";
 import type { ProductModel } from "../types/product.types";
 
 export const useProducts = () => {
-  const [products, setProducts] = useState<ProductModel[]>([]);
-  async function getProducts(): Promise<ProductModel[]> {
-    const response = await fetch("https://fakestoreapi.com/products");
+  const fetchProducts = useCallback(async (): Promise<ProductModel[]> => {
+    const response = await fetch(`${API_URLS.FAKE_STORE}/products`);
     return response.json();
-  }
-
-  useEffect(() => {
-    getProducts().then((products) => setProducts(products));
   }, []);
 
-  return { products };
+  const { data: products, loading, error, refetch } = useFetch<ProductModel[]>(fetchProducts);
+
+  return { products: products ?? [], loading, error, refetch };
 };
