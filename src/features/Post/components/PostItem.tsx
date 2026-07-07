@@ -1,14 +1,18 @@
-export default function PostItem({
-  title,
-  body,
-}: {
+import { Card, CardContent, CardHeader } from "@shared/components";
+import { truncateText } from "@shared/utils";
+
+interface PostItemProps {
   title: string;
   body: string;
-}) {
+}
+
+export default function PostItem({ title, body }: PostItemProps) {
   return (
-    <div className="rounded-lg border p-2 border-black/20 ">
-      <p className="font-bold text-lg">{title}</p>
-      <p className="text-teal-800">{body}</p>
-    </div>
+    <Card className="hover:shadow-lg transition-shadow duration-300">
+      <CardHeader>{title}</CardHeader>
+      <CardContent className="text-teal-800">
+        {truncateText(body, 100)}
+      </CardContent>
+    </Card>
   );
 }
