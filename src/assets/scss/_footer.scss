@@ -1,0 +1,11 @@
+.fixed-bottom {
+    z-index: 8 !important;
+}
+
+@include media-breakpoint-up(lg) {
+    footer {
+        position: absolute;
+        bottom: 5.5rem;
+        width: 96%;
+    }
+}

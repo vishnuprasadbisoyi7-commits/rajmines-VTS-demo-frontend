@@ -1,0 +1,40 @@
+.swiper {
+  padding: 0 3rem;
+}
+
+.custom-swiper-btn {
+  .swiper-button-next,
+  .swiper-button-prev {
+
+    color: var(--link-color);
+    border-radius: 50%;
+    background: var(--white);
+    height: 40px;
+    width: 40px;
+    transition: 0.6s;
+    border: 1px solid var(--link-color);
+    &:hover {
+      background: #4a78c9;
+      color: var(--white);
+      transition: 0.6s;
+    }
+
+    &::after {
+      font-size: 1rem; 
+    }
+  }
+
+  .swiper-button-next, .swiper-rtl .swiper-button-prev {
+    right: 0;
+    left: auto;
+}
+
+.swiper-button-prev, .swiper-rtl .swiper-button-next {
+  left: 0rem;
+  right: auto;
+}
+
+
+}
+
+

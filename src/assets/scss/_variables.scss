@@ -1,0 +1,121 @@
+$white: #fff;
+$gray-100: #f8f9fa;
+$gray-200: #eceff1;
+$gray-300: #dee2e6;
+$gray-400: #ced4da;
+$gray-500: #a2a9b1;
+$gray-600: #6c757d;
+$gray-700: #495057;
+$gray-800: #343a40;
+$gray-900: #212529;
+$black: #000;
+$yellowlight: #ffff00;
+$greenlight: rgb(140, 255, 0);
+$link-color: #2957A3;
+$icon-color: #84b798;
+$input-border: #dadada;
+$border-light: #ECECEC;
+$border-blue-light: #325774;
+$light-gray-bg :#f1f2f5;
+$gray-placeholder: #CACACA;
+$gray-date: #808080;
+
+$light-bg: #F9F9F9;
+// $light-brown-bg: #fff9f2;
+$light-brown-bg: #fffaf5;
+$light-bg-100: #fffdfb;
+
+$bg-light-red-200:#faeef0;
+$bg-light-red-300:#e9b6be;
+$bg-light-green-200:#FFEBEE;
+$bg-light-green-300:#b6daba;
+$bg-light-yellow-200:#fff7ed;
+$bg-light-yellow-300:#ffd7a8;
+
+
+$yellow: #f39353;
+$light-brown: #ffe0be;
+$light-brown-100: #fff5ea;
+$dark-brown: #ffcc95;
+$green: #1f723f;
+$pastel-green: #20A344;
+$green-dark: #1a6336;
+$green-light: #dfe9e3;
+$blue-light: #e3faff;
+$table-th-bg: #ECF7FF;
+$blue-light-100: #f1f7fc;
+$blue-light-200: #ECF0FD4D;
+$blue-light-300: #ECF0FD66;
+$blue-light-400: #53545C;
+$blue-light-500: #292929;
+$blue: #a5cbd3;
+$blue-dark: #11839a;
+$pastel-blue: #012a4a;
+$pastel-blue-400: #206498;
+$pastel-blue-theme: #1797A1;
+$pastel-blue-light: #00B4D8;
+$pastel-blue-info: #1797A1;
+$pastel-blue-info-600: #10737a;
+$pastel-blue-dark: #031f34;
+$pastel-brown: rgb(207, 102, 33);
+$pastel-brown-light: rgb(215, 179, 140);
+$red: #d13e4a;
+$red-100: #F60000;
+$green-100: #1DFF5C;
+$skyblue-100: #10D7FF;
+$skyblue-200: #18a1bd;
+$yellow-100: #FFE81D;
+
+$form-box-bg: #f8f9fa;
+$navbar-hight: 4.25rem;
+$navbar-hight-mobile: 3.25rem;
+$navbar-bg: $white;
+$navbar-brand-color: $gray-100;
+
+$navbar-border-bottom: 0;
+$navbar-box-shadow: 0 0 2rem 0 rgba($black, .1);
+
+$sidebar-bg: #012A4A !default;
+$sidebar-width: 280px !default;
+$sidebar-transition: margin-left .35s ease-in-out, left .35s ease-in-out, margin-right .35s ease-in-out, right .35s ease-in-out !default;
+
+$sidebar-link-padding: .625rem 1.625rem !default;
+$sidebar-link-font-weight: 400 !default;
+$sidebar-link-bg: $green !default;
+$sidebar-link-color: rgba($gray-200, 1) !default;
+$sidebar-link-border-left-color: transparent !default;
+$sidebar-link-hover-bg: rgba($white, .2) !default;
+$sidebar-link-hover-color: $gray-100 !default;
+$sidebar-link-hover-border-left-color: transparent !default;
+$sidebar-link-active-color: $gray-100 !default;
+$sidebar-dropdown-link-active-bg: transparent !default;
+$sidebar-dropdown-link-active-color: $skyblue-100 !default;
+
+// $sidebar-link-icon-color: $gray-500 !default;
+$sidebar-link-icon-color: $white !default;
+$sidebar-link-icon-hover-color: #{rgba($gray-200, 0.75)} !default;
+$sidebar-link-icon-active-color: $gray-200 !default;
+
+$content-padding-desktop: 1.4rem 1.8rem;
+$content-padding-mobile: 1rem;
+
+$simplebar-scrollbar-bg: $white !default;
+
+$input-btn-focus-box-shadow: 0 0 .5rem rgba($green, .4);
+$input-focus-border-color: rgba($green, .2);
+$form-select-focus-box-shadow: 0 0 .5rem rgba($green, .4);
+$dropdown-link-active-bg: $green;
+
+// $card-border-color:$gray-200 !default;
+$card-cap-bg: transparent;
+$card-padding-y: .85rem !default;
+$table-striped-bg: $gray-100;
+
+$input-btn-padding-y: .4rem !default;
+$input-btn-padding-x: .75rem !default;
+
+
+$custom-radius: 10px;
+
+
+
