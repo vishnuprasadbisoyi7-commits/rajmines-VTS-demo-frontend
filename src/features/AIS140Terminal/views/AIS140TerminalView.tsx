@@ -83,16 +83,16 @@ export const AIS140TerminalView: React.FC = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-4.5rem)] p-4 space-y-3">
       {/* Top Banner */}
-      <div className="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl p-4 shadow-xl flex items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
             <Terminal className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-base font-extrabold text-white tracking-wide flex items-center gap-2">
-              AIS-140 Raw Telemetry Packet Stream & Protocol Inspector
+            <h1 className="text-base font-extrabold text-slate-900 tracking-wide flex items-center gap-2">
+              AIS - 140 Raw Telemetry Packet Stream & Protocol Inspector
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               Automotive Industry Standard 140 (ARAI Compliant) • Real-time Hardware Hex & ASCII Parser
             </p>
           </div>
@@ -102,7 +102,7 @@ export const AIS140TerminalView: React.FC = () => {
           <button
             onClick={() => setIsPaused(!isPaused)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-              isPaused ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              isPaused ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
             }`}
           >
             {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
@@ -111,7 +111,7 @@ export const AIS140TerminalView: React.FC = () => {
 
           <button
             onClick={() => setPackets([])}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"
+            className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition border border-slate-200"
             title="Clear terminal"
           >
             <Trash2 className="w-4 h-4" />
@@ -122,7 +122,7 @@ export const AIS140TerminalView: React.FC = () => {
       {/* Main Terminal & Inspector Grid */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
         {/* Left 7 Cols: Live Raw Console */}
-        <div className="lg:col-span-7 h-full flex flex-col bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-2xl font-mono text-xs">
+        <div className="lg:col-span-7 h-full flex flex-col bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-md font-mono text-xs">
           {/* Console Header */}
           <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export const AIS140TerminalView: React.FC = () => {
                   key={t}
                   onClick={() => setFilterType(t)}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    filterType === t ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                    filterType === t ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   {t}
@@ -182,12 +182,12 @@ export const AIS140TerminalView: React.FC = () => {
         </div>
 
         {/* Right 5 Cols: Decoded Field Inspector */}
-        <div className="lg:col-span-5 h-full flex flex-col bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-          <div className="p-3.5 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <Cpu className="w-4 h-4 text-cyan-400" /> Decoded Frame Inspector
+        <div className="lg:col-span-5 h-full flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="p-3.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <Cpu className="w-4 h-4 text-cyan-600" /> Decoded Frame Inspector
             </span>
-            <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+            <span className="text-[10px] font-mono font-bold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
               <ShieldCheck className="w-3.5 h-3.5" /> CRC VERIFIED
             </span>
           </div>
@@ -197,17 +197,17 @@ export const AIS140TerminalView: React.FC = () => {
               parseRawForInspector(selectedRaw).map((field, i) => (
                 <div
                   key={i}
-                  className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 flex items-start justify-between gap-3 text-xs"
+                  className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 text-xs"
                 >
                   <div>
-                    <div className="text-slate-400 font-semibold">{field.label}</div>
-                    <div className="text-[10px] text-slate-500">{field.desc}</div>
+                    <div className="text-slate-700 font-semibold">{field.label}</div>
+                    <div className="text-[10px] text-slate-400">{field.desc}</div>
                   </div>
-                  <div className="font-mono font-bold text-amber-300 text-right">{field.value}</div>
+                  <div className="font-mono font-bold text-amber-800 text-right">{field.value}</div>
                 </div>
               ))
             ) : (
-              <div className="p-8 text-center text-slate-500 text-xs">
+              <div className="p-8 text-center text-slate-400 text-xs">
                 Select any packet from the terminal to view decoded protocol fields.
               </div>
             )}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import type {
   CheckpostFeature,
   FleetStats,
@@ -8,13 +8,29 @@ import type {
 } from '@/shared/types/vts.types';
 import { vtsApi } from '@/shared/services/vtsApi';
 import { useVtsWebSocket } from '@/shared/hooks/useVtsWebSocket';
-import { RajdharaaMap } from '@/shared/components/RajdharaaMap';
+import { RajdharaaMap, type RajdharaaMapHandle } from '@/shared/components/RajdharaaMap';
+import {
+  gisGeocodeService,
+  type GeocodeSearchResult,
+} from '@/shared/services/gisGeocodeService';
 import { FleetMetricsBar } from '../components/FleetMetricsBar';
 import { VehicleListSidebar } from '../components/VehicleListSidebar';
 import { VehicleTelemetryDrawer } from '../components/VehicleTelemetryDrawer';
-import { Layers, ShieldCheck, MapPin, Radio } from 'lucide-react';
+import {
+  Layers,
+  ShieldCheck,
+  MapPin,
+  Map as MapIcon,
+  Type,
+  Search,
+  Compass,
+  X,
+  Loader2,
+} from 'lucide-react';
 
 export const LiveTrackingView: React.FC = () => {
+  const mapRef = useRef<RajdharaaMapHandle | null>(null);
+
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [geofences, setGeofences] = useState<GeofenceZone[]>([]);
   const [checkposts, setCheckposts] = useState<CheckpostFeature[]>([]);
@@ -34,6 +50,14 @@ export const LiveTrackingView: React.FC = () => {
 
   const [showGeofences, setShowGeofences] = useState(true);
   const [showCheckposts, setShowCheckposts] = useState(true);
+  const [showDistricts, setShowDistricts] = useState(true);
+  const [showDivisionLabels, setShowDivisionLabels] = useState(true);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GeocodeSearchResult[]>([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   const { isConnected: wsConnected, liveVehicles, flashAlert } = useVtsWebSocket();
 
@@ -90,7 +114,7 @@ export const LiveTrackingView: React.FC = () => {
         setSelectedVehicle(updated);
       }
     }
-  }, [mergedVehicles]);
+  }, [mergedVehicles, selectedVehicle]);
 
   // Compute live fleet stats
   const liveStats = useMemo(() => {
@@ -120,6 +144,40 @@ export const LiveTrackingView: React.FC = () => {
     await vtsApi.triggerSimulatorEvent(regNo, eventType);
   };
 
+  const handleSearchPlaces = async (val: string) => {
+    setSearchQuery(val);
+    if (!val.trim()) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const results = await gisGeocodeService.searchRajasthanPlaces(val);
+      setSearchResults(results);
+      setShowSearchDropdown(results.length > 0);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSelectSearchResult = (res: GeocodeSearchResult) => {
+    if (mapRef.current) {
+      mapRef.current.flyToLocation(res.latitude, res.longitude, 12, res);
+    }
+    setShowSearchDropdown(false);
+    setSearchQuery(res.name);
+  };
+
+  const handleResetRajasthan = () => {
+    if (mapRef.current) {
+      mapRef.current.resetRajasthanView();
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-4.5rem)] p-4 space-y-3">
       {/* Top Fleet Metrics Bar */}
@@ -137,55 +195,148 @@ export const LiveTrackingView: React.FC = () => {
         </div>
 
         {/* Center/Right: Rajdharaa GIS Map View */}
-        <div className="flex-1 relative h-full rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
-          {/* Map Layer & Overlays Floating Bar */}
-          <div className="absolute top-4 left-4 z-[900] flex flex-wrap items-center gap-2 bg-slate-900/90 backdrop-blur-md p-2 rounded-xl border border-slate-700/80 shadow-xl">
-            {/* Layer Selector */}
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-950 rounded-lg border border-slate-800 text-xs">
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <select
-                value={activeLayerId}
-                onChange={(e) => setActiveLayerId(e.target.value)}
-                className="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer"
+        <div className="flex-1 relative h-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+          {/* Unified Non-Overlapping Header Toolbar */}
+          <div className="absolute top-3 left-3 right-3 z-[900] flex flex-wrap items-center justify-between gap-2.5 pointer-events-none">
+            {/* Left Controls: Base Layer & Overlays */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 shadow-md text-slate-800 pointer-events-auto">
+              {/* Layer Selector */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                <Layers className="w-3.5 h-3.5 text-amber-600" />
+                <select
+                  value={activeLayerId}
+                  onChange={(e) => setActiveLayerId(e.target.value)}
+                  className="bg-transparent text-slate-800 font-medium focus:outline-none cursor-pointer"
+                >
+                  {gisLayers.map((layer) => (
+                    <option key={layer.id} value={layer.id} className="bg-white text-slate-900">
+                      {layer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Districts Boundaries Toggle */}
+              <button
+                onClick={() => setShowDistricts(!showDistricts)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  showDistricts
+                    ? 'bg-sky-50 text-sky-800 border border-sky-300 shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
               >
-                {gisLayers.map((layer) => (
-                  <option key={layer.id} value={layer.id} className="bg-slate-900 text-white">
-                    {layer.name}
-                  </option>
-                ))}
-              </select>
+                <MapIcon className="w-3.5 h-3.5 text-sky-600" />
+                Districts (33)
+              </button>
+
+              {/* Division Labels Toggle */}
+              <button
+                onClick={() => setShowDivisionLabels(!showDivisionLabels)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  showDivisionLabels
+                    ? 'bg-purple-50 text-purple-800 border border-purple-300 shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <Type className="w-3.5 h-3.5 text-purple-600" />
+                Labels
+              </button>
+
+              {/* Geofences Toggle */}
+              <button
+                onClick={() => setShowGeofences(!showGeofences)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  showGeofences
+                    ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                Mining Leases
+              </button>
+
+              {/* Checkposts Toggle */}
+              <button
+                onClick={() => setShowCheckposts(!showCheckposts)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  showCheckposts
+                    ? 'bg-cyan-50 text-cyan-800 border border-cyan-300 shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-600" />
+                DMG Checkposts
+              </button>
             </div>
 
-            {/* Geofences Toggle */}
-            <button
-              onClick={() => setShowGeofences(!showGeofences)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-                showGeofences
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5 text-amber-400" />
-              Mining Leases
-            </button>
+            {/* Right Controls: Place Search & Reset Rajasthan View */}
+            <div className="flex items-center gap-2 pointer-events-auto flex-shrink-0">
+              {/* Find Place in Rajasthan */}
+              <div className="relative w-56 sm:w-64">
+                <div className="flex items-center gap-2 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md">
+                  <Search className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Find place in Rajasthan..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchPlaces(e.target.value)}
+                    onFocus={() => searchResults.length > 0 && setShowSearchDropdown(true)}
+                    className="bg-transparent text-xs text-slate-800 focus:outline-none w-full placeholder:text-slate-400"
+                  />
+                  {searching ? (
+                    <Loader2 className="w-3 h-3 text-amber-600 animate-spin flex-shrink-0" />
+                  ) : searchQuery ? (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchResults([]);
+                        setShowSearchDropdown(false);
+                      }}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <span className="text-[9px] uppercase font-bold text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 flex-shrink-0">
+                      RJ
+                    </span>
+                  )}
+                </div>
 
-            {/* Checkposts Toggle */}
-            <button
-              onClick={() => setShowCheckposts(!showCheckposts)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-                showCheckposts
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-              DMG Checkposts
-            </button>
+                {/* Search Results Dropdown */}
+                {showSearchDropdown && searchResults.length > 0 && (
+                  <div className="absolute top-full mt-1.5 left-0 right-0 bg-white/98 backdrop-blur-md border border-slate-200 rounded-xl shadow-2xl overflow-hidden text-xs max-h-56 overflow-y-auto z-50">
+                    <div className="px-3 py-1 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Rajasthan Locations & Mines
+                    </div>
+                    {searchResults.map((res, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSelectSearchResult(res)}
+                        className="w-full text-left px-3 py-1.5 hover:bg-amber-50/80 flex items-center justify-between border-b border-slate-50 transition-colors"
+                      >
+                        <div>
+                          <div className="font-semibold text-slate-800">{res.name}</div>
+                          <div className="text-[10px] text-slate-500">{res.district || 'Rajasthan'}</div>
+                        </div>
+                        <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">
+                          {res.type}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            {/* Live GPS Telemetry Status */}
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-950/80 rounded-lg border border-slate-800 text-[11px] font-mono text-emerald-400">
-              <Radio className="w-3 h-3 animate-pulse" />
-              <span>AIS-140 Pings/2.5s</span>
+              {/* Reset to Rajasthan State Button */}
+              <button
+                onClick={handleResetRajasthan}
+                title="Fit Rajasthan State View"
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-md hover:bg-white text-slate-800 text-xs font-semibold rounded-xl border border-slate-200 shadow-md transition-all hover:scale-105"
+              >
+                <Compass className="w-3.5 h-3.5 text-amber-600" />
+                <span className="hidden sm:inline">Rajasthan</span>
+              </button>
             </div>
           </div>
 
@@ -201,6 +352,7 @@ export const LiveTrackingView: React.FC = () => {
 
           {/* Leaflet Map with Rajdharaa GIS Layers */}
           <RajdharaaMap
+            ref={mapRef}
             vehicles={mergedVehicles}
             geofences={geofences}
             checkposts={checkposts}
@@ -210,6 +362,9 @@ export const LiveTrackingView: React.FC = () => {
             onSelectVehicle={(v) => setSelectedVehicle(v)}
             showGeofences={showGeofences}
             showCheckposts={showCheckposts}
+            showDistricts={showDistricts}
+            showDivisionLabels={showDivisionLabels}
+            hideEmbeddedSearch={true}
           />
 
           {/* Right Floating Telemetry Drawer */}

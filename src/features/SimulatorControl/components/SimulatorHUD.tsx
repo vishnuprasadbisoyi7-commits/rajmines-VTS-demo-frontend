@@ -44,27 +44,27 @@ export const SimulatorHUD: React.FC<SimulatorHUDProps> = ({
           <span className="text-xs uppercase tracking-wider">Simulate Hardware Events</span>
         </button>
       ) : (
-        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-2xl p-4 shadow-2xl w-84 max-w-[calc(100vw-3rem)] text-xs space-y-3 animate-in fade-in slide-in-from-bottom-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2 font-bold text-amber-400 text-sm">
-              <Sliders className="w-4 h-4" /> AIS-140 Simulator Console
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-4 shadow-2xl w-84 max-w-[calc(100vw-3rem)] text-xs space-y-3 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-2 font-bold text-amber-700 text-sm">
+              <Sliders className="w-4 h-4 text-amber-600" /> Simulator Console
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div>
-            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+            <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
               Target Mineral Carrier:
             </label>
             <select
               value={selectedReg}
               onChange={(e) => setSelectedReg(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-white focus:outline-none focus:border-amber-500"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
             >
               {activeVehicles.map((reg) => (
                 <option key={reg} value={reg}>
@@ -77,43 +77,43 @@ export const SimulatorHUD: React.FC<SimulatorHUDProps> = ({
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               onClick={() => handleTrigger('SOS')}
-              className="p-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 font-semibold flex items-center justify-center gap-1.5 transition"
+              className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold flex items-center justify-center gap-1.5 transition"
             >
-              <AlertTriangle className="w-4 h-4 text-rose-400" /> Panic SOS
+              <AlertTriangle className="w-4 h-4 text-rose-600" /> Panic SOS
             </button>
 
             <button
               onClick={() => handleTrigger('OVERSPEED')}
-              className="p-2.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-300 font-semibold flex items-center justify-center gap-1.5 transition"
+              className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold flex items-center justify-center gap-1.5 transition"
             >
-              <Gauge className="w-4 h-4 text-amber-400" /> Overspeed
+              <Gauge className="w-4 h-4 text-amber-600" /> Overspeed
             </button>
 
             <button
               onClick={() => handleTrigger('GEOFENCE_BREACH')}
-              className="p-2.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 font-semibold flex items-center justify-center gap-1.5 transition"
+              className="p-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-semibold flex items-center justify-center gap-1.5 transition"
             >
-              <MapPin className="w-4 h-4 text-indigo-400" /> Lease Breach
+              <MapPin className="w-4 h-4 text-indigo-600" /> Lease Breach
             </button>
 
             <button
               onClick={() => handleTrigger('TAMPER')}
-              className="p-2.5 rounded-xl bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 text-orange-300 font-semibold flex items-center justify-center gap-1.5 transition"
+              className="p-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-800 font-semibold flex items-center justify-center gap-1.5 transition"
             >
-              <BatteryWarning className="w-4 h-4 text-orange-400" /> Wire Tamper
+              <BatteryWarning className="w-4 h-4 text-orange-600" /> Wire Tamper
             </button>
           </div>
 
           <button
             onClick={() => handleTrigger('IGNITION_TOGGLE')}
-            className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold flex items-center justify-center gap-1.5 transition border border-slate-700"
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold flex items-center justify-center gap-1.5 transition border border-slate-200"
           >
-            <Power className="w-4 h-4 text-emerald-400" /> Toggle Engine Ignition
+            <Power className="w-4 h-4 text-emerald-600" /> Toggle Engine Ignition
           </button>
 
           {feedback && (
-            <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-center font-semibold text-[11px] flex items-center justify-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> {feedback}
+            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-center font-semibold text-[11px] flex items-center justify-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {feedback}
             </div>
           )}
         </div>

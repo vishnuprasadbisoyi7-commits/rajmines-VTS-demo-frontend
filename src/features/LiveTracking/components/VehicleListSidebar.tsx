@@ -42,14 +42,14 @@ export const VehicleListSidebar: React.FC<VehicleListSidebarProps> = ({
   }, [vehicles]);
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/95 backdrop-blur border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+    <div className="flex flex-col h-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
       {/* Header & Search */}
-      <div className="p-4 border-b border-slate-800 space-y-3 bg-slate-900/50">
+      <div className="p-4 border-b border-slate-200 space-y-3 bg-slate-50/70">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold tracking-wide uppercase text-amber-400 flex items-center gap-2">
-            <Compass className="w-4 h-4" /> Mining Fleet ({filteredVehicles.length})
+          <h2 className="text-sm font-bold tracking-wide uppercase text-slate-900 flex items-center gap-2">
+            <Compass className="w-4 h-4 text-amber-600" /> Mining Fleet ({filteredVehicles.length})
           </h2>
-          <span className="text-[11px] font-mono text-slate-400">AIS-140 GPS</span>
+          <span className="text-[11px] font-mono text-slate-500 font-medium">GPS Tracker</span>
         </div>
 
         {/* Search Input */}
@@ -60,7 +60,7 @@ export const VehicleListSidebar: React.FC<VehicleListSidebarProps> = ({
             placeholder="Search vehicle no, driver, IMEI..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
+            className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 transition shadow-sm"
           />
         </div>
 
@@ -72,8 +72,8 @@ export const VehicleListSidebar: React.FC<VehicleListSidebarProps> = ({
               onClick={() => setStatusFilter(status)}
               className={`px-2.5 py-1 rounded-md font-semibold transition whitespace-nowrap ${
                 statusFilter === status
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
               }`}
             >
               {status}
@@ -86,7 +86,7 @@ export const VehicleListSidebar: React.FC<VehicleListSidebarProps> = ({
           <select
             value={mineralFilter}
             onChange={(e) => setMineralFilter(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-amber-500"
+            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-amber-500 shadow-sm"
           >
             <option value="ALL">All Minerals (Sand, Marble, Limestone...)</option>
             {minerals.map((m) => (
@@ -99,9 +99,9 @@ export const VehicleListSidebar: React.FC<VehicleListSidebarProps> = ({
       </div>
 
       {/* Vehicle List */}
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-800/50 p-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {filteredVehicles.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 text-xs">
+          <div className="p-8 text-center text-slate-400 text-xs">
             No active vehicles matching filter criteria.
           </div>
         ) : (
@@ -116,10 +116,10 @@ export const VehicleListSidebar: React.FC<VehicleListSidebarProps> = ({
                 onClick={() => onSelectVehicle(vehicle)}
                 className={`p-3 rounded-lg border transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-amber-500/10 border-amber-500/60 shadow-md ring-1 ring-amber-500/30'
+                    ? 'bg-amber-50/80 border-amber-500 shadow-md ring-1 ring-amber-400/50'
                     : isSOS
-                    ? 'bg-rose-950/30 border-rose-600/50 hover:bg-rose-900/20'
-                    : 'bg-slate-950/40 border-slate-800/60 hover:bg-slate-800/50 hover:border-slate-700'
+                    ? 'bg-rose-50 border-rose-300 hover:bg-rose-100/60'
+                    : 'bg-slate-50/80 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
@@ -129,55 +129,55 @@ export const VehicleListSidebar: React.FC<VehicleListSidebarProps> = ({
                         isSOS
                           ? 'bg-rose-500 animate-ping'
                           : isMoving
-                          ? 'bg-emerald-400'
+                          ? 'bg-emerald-500'
                           : vehicle.status === 'IDLE'
-                          ? 'bg-amber-400'
-                          : 'bg-slate-500'
+                          ? 'bg-amber-500'
+                          : 'bg-slate-400'
                       }`}
                     />
-                    <span className="font-mono font-bold text-sm text-white tracking-tight">
+                    <span className="font-mono font-bold text-sm text-slate-900 tracking-tight">
                       {vehicle.reg_no}
                     </span>
                   </div>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                       isSOS
-                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        ? 'bg-rose-100 text-rose-700 border border-rose-300'
                         : isMoving
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
                         : vehicle.status === 'IDLE'
-                        ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                        : 'bg-slate-800 text-slate-400'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                        : 'bg-slate-200 text-slate-700'
                     }`}
                   >
                     {isSOS ? 'SOS ALERT' : vehicle.status}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400 mb-2">
+                <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-600 mb-2">
                   <div>
                     Mineral:{' '}
-                    <span className="text-slate-200 font-medium">{vehicle.mineral_type}</span>
+                    <span className="text-slate-900 font-medium">{vehicle.mineral_type}</span>
                   </div>
-                  <div className="text-right font-mono text-emerald-400 font-bold">
+                  <div className="text-right font-mono text-emerald-700 font-bold">
                     {Math.round(vehicle.last_speed)} km/h
                   </div>
                   <div>
-                    Driver: <span className="text-slate-300">{vehicle.driver_name}</span>
+                    Driver: <span className="text-slate-800 font-medium">{vehicle.driver_name}</span>
                   </div>
                   <div className="text-right">
-                    Cap: <span className="text-slate-300">{vehicle.capacity_tonnes}T</span>
+                    Cap: <span className="text-slate-800 font-medium">{vehicle.capacity_tonnes}T</span>
                   </div>
                 </div>
 
                 {/* Telemetry Snapshot Row */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-[10px] text-slate-400 font-mono">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-[10px] text-slate-500 font-mono">
                   <div className="flex items-center gap-1">
-                    <Zap className={`w-3 h-3 ${vehicle.last_ignition ? 'text-amber-400' : 'text-slate-600'}`} />
+                    <Zap className={`w-3 h-3 ${vehicle.last_ignition ? 'text-amber-600' : 'text-slate-400'}`} />
                     <span>{vehicle.last_ignition ? 'IGN ON' : 'IGN OFF'}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <BatteryCharging className="w-3 h-3 text-cyan-400" />
+                    <BatteryCharging className="w-3 h-3 text-cyan-600" />
                     <span>{vehicle.last_internal_batt.toFixed(2)}V</span>
                   </div>
                   <div>Sat: {vehicle.last_satellites}</div>

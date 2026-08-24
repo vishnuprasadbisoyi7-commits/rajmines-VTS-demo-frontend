@@ -1,43 +1,35 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router';
-import {
-  Compass,
-  MapPin,
-  PlayCircle,
-  FileText,
-  ShieldAlert,
-  Terminal,
-  ExternalLink,
-} from 'lucide-react';
+import { Compass } from 'lucide-react';
+import rminesLogo from '@/assets/img/rmines-logo.png';
 
 export const Header: React.FC = () => {
   const navItems = [
     { label: 'Live Tracking', path: '/live-tracking', icon: Compass },
-    { label: 'Route Playback', path: '/playback', icon: PlayCircle },
-    { label: 'Mining Leases', path: '/geofences', icon: MapPin },
-    { label: 'e-Ravanna Passes', path: '/e-ravanna', icon: FileText },
-    { label: 'Alerts & SOS', path: '/alerts', icon: ShieldAlert },
-    { label: 'AIS-140 Terminal', path: '/ais140', icon: Terminal },
+    // { label: 'Route Playback', path: '/playback', icon: PlayCircle },
+    // { label: 'Alerts & SOS', path: '/alerts', icon: ShieldAlert },
+    // { label: 'List View', path: '/geofences', icon: MapPin },
+    // { label: 'Trip Reports', path: '/e-ravanna', icon: FileText },
+    // { label: 'AIS - 140 Terminal', path: '/ais140', icon: Terminal },
   ];
 
   return (
-    <header className="h-16 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 flex items-center justify-between sticky top-0 z-[1100] shadow-xl">
+    <header className="h-16 bg-white/95 backdrop-blur border-b border-slate-200 px-4 flex items-center justify-between sticky top-0 z-[1100] shadow-sm">
       {/* Brand & Portal Title */}
       <div className="flex items-center gap-3">
         <Link to="/" className="flex items-center gap-2.5 group">
-          {/* Emblem / Badge */}
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-950/50 border border-amber-400/40 text-slate-950 font-black text-lg group-hover:scale-105 transition">
-            RM
-          </div>
+          {/* Official Emblem Logo */}
+          <img
+            src={rminesLogo}
+            alt="RajMines Logo"
+            className="w-10 h-10 object-contain rounded-lg p-0.5 bg-white border border-slate-200 shadow-sm group-hover:scale-105 transition"
+          />
           <div>
-            <div className="font-extrabold text-sm text-white tracking-wide flex items-center gap-1.5">
+            <div className="font-extrabold text-sm text-slate-900 tracking-wide flex items-center gap-1.5">
               <span>RajMines VTS</span>
-              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                AIS-140
-              </span>
             </div>
-            <div className="text-[10px] font-semibold text-slate-400">
-              Rajdharaa GIS • DMG Rajasthan
+            <div className="text-[10px] font-semibold text-slate-500">
+              DMG Rajasthan
             </div>
           </div>
         </Link>
@@ -54,8 +46,8 @@ export const Header: React.FC = () => {
               className={({ isActive }) =>
                 `flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                   isActive
-                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`
               }
             >
@@ -67,7 +59,7 @@ export const Header: React.FC = () => {
       </nav>
 
       {/* Right Side Links & Status */}
-      <div className="flex items-center gap-3">
+      {/* <div className="flex items-center gap-3">
         <a
           href="https://gis.rajasthan.gov.in/"
           target="_blank"
@@ -78,7 +70,7 @@ export const Header: React.FC = () => {
           <span>Rajdharaa GIS Portal</span>
           <ExternalLink className="w-3 h-3 text-slate-500" />
         </a>
-      </div>
+      </div> */}
     </header>
   );
 };

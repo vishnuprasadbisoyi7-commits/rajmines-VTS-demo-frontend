@@ -32,6 +32,8 @@ export interface Vehicle {
   last_updated: string;
   active_geofence?: string;
   active_e_ravanna?: string;
+  input_voltage?: number;
+  gps_fix?: number;
 }
 
 export interface TelemetryPoint {
@@ -99,6 +101,10 @@ export interface ERavannaPass {
   origin_coords: [number, number];
   dest_coords: [number, number];
   status: 'IN_TRANSIT' | 'COMPLETED' | 'EXPIRED' | 'ROUTE_DEVIATED' | 'OVERLOADED';
+  generation_time?: string;
+  trip_start?: string;
+  trip_end?: string;
+  deviation?: string;
 }
 
 export interface AlertRecord {

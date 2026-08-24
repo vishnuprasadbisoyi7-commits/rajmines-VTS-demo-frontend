@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { TelemetryUpdate, AlertRecord } from '../types/vts.types';
 
-interface WebSocketMessage {
-  type: 'TELEMETRY_UPDATE' | 'ALERT' | 'RAW_PACKET' | 'VEHICLE_UPDATE';
-  data: any;
-  timestamp: string;
-}
+type WebSocketMessage =
+  | { type: 'TELEMETRY_UPDATE'; data: TelemetryUpdate; timestamp: string }
+  | { type: 'RAW_PACKET'; data: string; timestamp: string }
+  | { type: 'ALERT'; data: AlertRecord; timestamp: string }
+  | { type: 'VEHICLE_UPDATE'; data: Record<string, unknown>; timestamp: string };
 
 export function useVtsWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
@@ -16,7 +16,7 @@ export function useVtsWebSocket() {
   const [flashAlert, setFlashAlert] = useState<AlertRecord | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<any>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const connect = useCallback(() => {
     try {

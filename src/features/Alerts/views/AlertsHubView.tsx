@@ -62,23 +62,23 @@ export const AlertsHubView: React.FC = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-4.5rem)] p-4 space-y-4">
       {/* Top Banner */}
-      <div className="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl p-4 shadow-xl flex items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <div className="p-2.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200">
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-base font-extrabold text-white tracking-wide">
-              Mining Fleet Alerts & AIS-140 Security Incident Hub
+            <h1 className="text-base font-extrabold text-slate-900 tracking-wide">
+              Mining Fleet Alerts & Security Incident Hub
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               Department of Mines & Geology Rajasthan • Central Vigilance Alert Monitoring
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-mono font-bold">
+          <span className="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono font-bold">
             {alerts.filter((a) => !a.is_resolved).length} Unresolved Incidents
           </span>
         </div>
@@ -87,7 +87,7 @@ export const AlertsHubView: React.FC = () => {
       {/* Alert List */}
       <div className="flex-1 overflow-y-auto space-y-3">
         {alerts.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-xs bg-slate-900/40 rounded-xl border border-slate-800">
+          <div className="p-12 text-center text-slate-400 text-xs bg-white rounded-xl border border-slate-200 shadow-sm">
             No alerts logged currently. Fleet is operating normally.
           </div>
         ) : (
@@ -97,60 +97,60 @@ export const AlertsHubView: React.FC = () => {
             return (
               <div
                 key={alert.id}
-                className={`p-4 rounded-xl border transition backdrop-blur shadow-lg ${
+                className={`p-4 rounded-xl border transition shadow-sm ${
                   alert.is_resolved
-                    ? 'bg-slate-900/40 border-slate-800/80 opacity-75'
+                    ? 'bg-slate-50 border-slate-200 opacity-75'
                     : isSOS
-                    ? 'bg-rose-950/30 border-rose-600/60 shadow-rose-950/50'
-                    : 'bg-slate-900/90 border-slate-700/80'
+                    ? 'bg-rose-50/80 border-rose-300'
+                    : 'bg-white border-slate-200'
                 }`}
               >
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-2 pb-2 border-b border-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-2 pb-2 border-b border-slate-200">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
                       {getAlertIcon(alert.alert_type)}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-bold text-white">{alert.reg_no}</span>
+                        <span className="font-mono text-sm font-bold text-slate-900">{alert.reg_no}</span>
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                             alert.severity === 'CRITICAL'
-                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                              : 'bg-amber-100 text-amber-800 border border-amber-300'
                           }`}
                         >
                           {alert.severity}
                         </span>
                       </div>
-                      <div className="text-[11px] font-mono text-slate-500">IMEI: {alert.imei}</div>
+                      <div className="text-[11px] font-mono text-slate-400">IMEI: {alert.imei}</div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400 flex items-center gap-1 font-mono">
-                      <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
+                      <Clock className="w-3.5 h-3.5 text-cyan-600" />
                       {new Date(alert.timestamp).toLocaleTimeString()}
                     </span>
 
                     {!alert.is_resolved ? (
                       <button
                         onClick={() => handleResolve(alert.id)}
-                        className="px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                        className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Resolve
                       </button>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-xs font-medium">
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200">
                         Resolved
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="text-xs text-slate-300 leading-relaxed">{alert.message}</div>
+                <div className="text-xs text-slate-700 leading-relaxed font-medium">{alert.message}</div>
 
-                <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/60 font-mono">
+                <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-200 font-mono">
                   <span>
                     Location: {alert.latitude.toFixed(4)}° N, {alert.longitude.toFixed(4)}° E
                   </span>

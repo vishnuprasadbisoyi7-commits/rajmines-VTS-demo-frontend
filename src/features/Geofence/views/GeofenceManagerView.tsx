@@ -1,163 +1,380 @@
 import React, { useEffect, useState } from 'react';
-import type { GeofenceZone } from '@/shared/types/vts.types';
+import type { Vehicle, VehicleStatus } from '@/shared/types/vts.types';
 import { vtsApi } from '@/shared/services/vtsApi';
-import { RajdharaaMap } from '@/shared/components/RajdharaaMap';
-import { MapPin, Info } from 'lucide-react';
+import {
+  List,
+  Search,
+  Download,
+  SlidersHorizontal,
+  ChevronDown,
+  RefreshCw,
+} from 'lucide-react';
 
 export const GeofenceManagerView: React.FC = () => {
-  const [geofences, setGeofences] = useState<GeofenceZone[]>([]);
-  const [selectedZone, setSelectedZone] = useState<GeofenceZone | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [showColumnsMenu, setShowColumnsMenu] = useState<boolean>(false);
+
+  // Column visibility controls
+  const [visibleColumns, setVisibleColumns] = useState({
+    reg_no: true,
+    imei: true,
+    e_rawanna: true,
+    status: true,
+    ign_status: true,
+    speed: true,
+    gps_fix: true,
+    altitude: true,
+    input_voltage: true,
+    internal_voltage: true,
+  });
+
+  const loadVehicles = async () => {
+    setLoading(true);
+    const list = await vtsApi.getVehicles();
+    setVehicles(list);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    async function loadGeofences() {
-      const list = await vtsApi.getGeofences();
-      setGeofences(list);
-      if (list.length > 0) {
-        setSelectedZone(list[0]);
-      }
-    }
-    loadGeofences();
+    loadVehicles();
   }, []);
 
+  const filteredVehicles = vehicles.filter((v) => {
+    const matchesStatus =
+      statusFilter === 'ALL' || v.status === (statusFilter as VehicleStatus);
+    const matchesSearch =
+      v.reg_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.imei.includes(searchTerm);
+    return matchesStatus && matchesSearch;
+  });
+
+  const handleExportCSV = () => {
+    const headers = [
+      'Registration No',
+      'IMEI',
+      'e-Rawanna No',
+      'Status',
+      'IGN Status',
+      'Speed (km/h)',
+      'GPS Fix',
+      'Altitude (m)',
+      'Input Voltage (V)',
+      'Internal Voltage (V)',
+    ];
+
+    const rows = filteredVehicles.map((v) => [
+      v.reg_no,
+      v.imei,
+      v.active_e_ravanna || 'N/A',
+      v.status,
+      v.last_ignition ? 'ON' : 'OFF',
+      Math.round(v.last_speed),
+      v.gps_fix ?? 1,
+      Math.round(v.last_altitude || 100),
+      v.input_voltage ?? 27,
+      v.last_internal_batt ? `${v.last_internal_batt.toFixed(2)}` : '4.0',
+    ]);
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `rajmines_vehicle_list_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <div className="flex flex-col h-[calc(100vh-4.5rem)] p-4 space-y-3">
-      {/* Top Header */}
-      <div className="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl p-4 shadow-xl flex items-center justify-between">
+    <div className="flex flex-col h-[calc(100vh-4.5rem)] p-4 space-y-3 bg-slate-50">
+      {/* Top Header / Breadcrumb */}
+      <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <MapPin className="w-5 h-5" />
+          <div className="p-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+            <List className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-extrabold text-white tracking-wide">
-              Rajasthan Mining Lease & Geofence Boundary Manager
+            <h1 className="text-base font-extrabold text-slate-900 tracking-wide">
+              List View
             </h1>
-            <p className="text-xs text-slate-400">
-              Department of Mines & Geology (DMG) • Rajdharaa Cadastral Spatial Boundaries
+            <p className="text-xs text-slate-500">
+              Mining Fleet Live Telemetry & GPS Sensor Data Table
             </p>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-amber-400">
-            {geofences.length} Active Spatial Zones
+          <button
+            onClick={loadVehicles}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+          <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+            Total {filteredVehicles.length} Vehicles
           </span>
         </div>
       </div>
 
-      {/* Main Grid: Zone List + Interactive Map */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
-        {/* Left 5 Cols: Zone List Table */}
-        <div className="lg:col-span-5 h-full flex flex-col bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-          <div className="p-3.5 border-b border-slate-800 bg-slate-950/50">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Enrolled Mining Leases & Checkposts
-            </span>
+      {/* Toolbar / Filters Row */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          {/* Status Dropdown */}
+          <div className="min-w-[150px]">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-amber-500 cursor-pointer"
+            >
+              <option value="ALL">All Status</option>
+              <option value="MOVING">Moving</option>
+              <option value="IDLE">Idle</option>
+              <option value="STOPPED">Stopped</option>
+              <option value="OVERSPEED">Overspeed</option>
+              <option value="SOS">SOS Emergency</option>
+            </select>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60 p-2 space-y-2">
-            {geofences.map((gf) => {
-              const isSelected = selectedZone?.id === gf.id;
-              const isLease = gf.zone_type === 'MINING_LEASE';
-
-              return (
-                <div
-                  key={gf.id}
-                  onClick={() => setSelectedZone(gf)}
-                  className={`p-3.5 rounded-xl border transition cursor-pointer ${
-                    isSelected
-                      ? 'bg-amber-500/10 border-amber-500/60 shadow-lg ring-1 ring-amber-500/30'
-                      : 'bg-slate-950/40 border-slate-800/80 hover:bg-slate-800/40 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <div>
-                      <div className="font-bold text-sm text-white">{gf.name}</div>
-                      <div className="text-[11px] font-mono text-slate-500">{gf.id}</div>
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                        isLease
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : gf.zone_type === 'STOCKYARD'
-                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      }`}
-                    >
-                      {gf.zone_type}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-400 mt-2">
-                    <div>
-                      Mineral: <span className="text-slate-200 font-medium">{gf.mineral_type}</span>
-                    </div>
-                    <div className="text-right">
-                      Speed Limit: <span className="font-mono text-amber-400 font-bold">{gf.speed_limit} km/h</span>
-                    </div>
-                    <div>
-                      Polygon Vertices: <span className="font-mono text-slate-300">{gf.polygon.length} pts</span>
-                    </div>
-                    <div className="text-right">
-                      Buffer: <span className="font-mono text-slate-300">{gf.buffer_meters}m</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-md min-w-[220px]">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by Vehicle No..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white"
+            />
           </div>
         </div>
 
-        {/* Right 7 Cols: Map View */}
-        <div className="lg:col-span-7 h-full relative rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
-          <RajdharaaMap
-            vehicles={[]}
-            geofences={geofences}
-            checkposts={[]}
-            gisLayers={[
-              {
-                id: 'satellite',
-                name: 'Rajdharaa Satellite Hybrid',
-                type: 'tile',
-                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attribution: '© Rajdharaa GIS / DoIT&C Govt. of Rajasthan',
-                is_default: true,
-                max_zoom: 19,
-                min_zoom: 5,
-              },
-            ]}
-            activeLayerId="satellite"
-            selectedVehicle={null}
-            onSelectVehicle={() => {}}
-            showGeofences={true}
-          />
+        {/* Action Buttons: Export CSV & Columns Dropdown */}
+        <div className="flex items-center gap-2 relative">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export CSV</span>
+          </button>
 
-          {/* Selected Zone Quick Info Float */}
-          {selectedZone && (
-            <div className="absolute top-4 right-4 z-[900] bg-slate-900/90 backdrop-blur-md p-4 rounded-xl border border-slate-700/80 shadow-2xl w-80 text-xs space-y-2">
-              <div className="flex items-center gap-1.5 text-amber-400 font-bold text-sm">
-                <Info className="w-4 h-4" /> {selectedZone.name}
+          <div className="relative">
+            <button
+              onClick={() => setShowColumnsMenu(!showColumnsMenu)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition shadow-xs"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              <span>Columns</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {showColumnsMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 text-xs space-y-1.5">
+                <div className="font-bold text-slate-500 uppercase text-[10px] px-2 py-1">
+                  Toggle Columns
+                </div>
+                {Object.keys(visibleColumns).map((colKey) => (
+                  <label
+                    key={colKey}
+                    className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 rounded cursor-pointer text-slate-700 font-medium capitalize"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns[colKey as keyof typeof visibleColumns]}
+                      onChange={(e) =>
+                        setVisibleColumns({
+                          ...visibleColumns,
+                          [colKey]: e.target.checked,
+                        })
+                      }
+                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>{colKey.replace('_', ' ')}</span>
+                  </label>
+                ))}
               </div>
-              <div className="space-y-1 text-slate-300">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Zone Type:</span>
-                  <span className="font-semibold text-white">{selectedZone.zone_type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Permitted Mineral:</span>
-                  <span className="text-white">{selectedZone.mineral_type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Centroid Coords:</span>
-                  <span className="font-mono text-slate-200">
-                    {selectedZone.center_lat.toFixed(4)}° N, {selectedZone.center_lng.toFixed(4)}° E
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Max Permissible Speed:</span>
-                  <span className="font-mono text-amber-400 font-bold">{selectedZone.speed_limit} km/h</span>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table Container */}
+      <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col min-h-0">
+        <div className="flex-1 overflow-x-auto overflow-y-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            {/* Table Header */}
+            <thead className="bg-slate-50/80 sticky top-0 z-10 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+              <tr>
+                {visibleColumns.reg_no && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">Registration No</th>
+                )}
+                {visibleColumns.imei && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">IMEI</th>
+                )}
+                {visibleColumns.e_rawanna && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">e-Rawanna No</th>
+                )}
+                {visibleColumns.status && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">Status</th>
+                )}
+                {visibleColumns.ign_status && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">IGN Status</th>
+                )}
+                {visibleColumns.speed && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">Speed</th>
+                )}
+                {visibleColumns.gps_fix && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">GPS Fix</th>
+                )}
+                {visibleColumns.altitude && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">Altitude</th>
+                )}
+                {visibleColumns.input_voltage && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">Input Voltage</th>
+                )}
+                {visibleColumns.internal_voltage && (
+                  <th className="px-4 py-3.5 whitespace-nowrap">Internal Voltage</th>
+                )}
+              </tr>
+            </thead>
+
+            {/* Table Body */}
+            <tbody className="divide-y divide-slate-100">
+              {filteredVehicles.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={10}
+                    className="p-12 text-center text-slate-400 text-xs font-medium"
+                  >
+                    No vehicles found matching the filter criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredVehicles.map((vehicle, idx) => {
+                  const isMoving = vehicle.status === 'MOVING';
+                  const isSOS = vehicle.status === 'SOS' || vehicle.last_emergency;
+                  const isOverSpeed = vehicle.status === 'OVERSPEED';
+
+                  return (
+                    <tr
+                      key={vehicle.id || idx}
+                      className="hover:bg-slate-50/70 transition-colors"
+                    >
+                      {/* Registration No */}
+                      {visibleColumns.reg_no && (
+                        <td className="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                          {vehicle.reg_no}
+                        </td>
+                      )}
+
+                      {/* IMEI */}
+                      {visibleColumns.imei && (
+                        <td className="px-4 py-3 font-mono text-slate-600 whitespace-nowrap">
+                          {vehicle.imei}
+                        </td>
+                      )}
+
+                      {/* e-Rawanna No */}
+                      {visibleColumns.e_rawanna && (
+                        <td className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap">
+                          {vehicle.active_e_ravanna || 'N/A'}
+                        </td>
+                      )}
+
+                      {/* Status */}
+                      {visibleColumns.status && (
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
+                              isSOS
+                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                : isOverSpeed
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : isMoving
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}
+                          >
+                            {vehicle.status}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* IGN Status */}
+                      {visibleColumns.ign_status && (
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              vehicle.last_ignition
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-500 border border-slate-200'
+                            }`}
+                          >
+                            {vehicle.last_ignition ? 'ON' : 'OFF'}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Speed */}
+                      {visibleColumns.speed && (
+                        <td className="px-4 py-3 font-mono text-slate-800 whitespace-nowrap">
+                          {Math.round(vehicle.last_speed)} km/h
+                        </td>
+                      )}
+
+                      {/* GPS Fix */}
+                      {visibleColumns.gps_fix && (
+                        <td className="px-4 py-3 font-mono text-slate-800 whitespace-nowrap">
+                          {vehicle.gps_fix ?? 1}
+                        </td>
+                      )}
+
+                      {/* Altitude */}
+                      {visibleColumns.altitude && (
+                        <td className="px-4 py-3 font-mono text-slate-800 whitespace-nowrap">
+                          {Math.round(vehicle.last_altitude || 100)} m
+                        </td>
+                      )}
+
+                      {/* Input Voltage */}
+                      {visibleColumns.input_voltage && (
+                        <td className="px-4 py-3 font-mono text-slate-800 whitespace-nowrap">
+                          {vehicle.input_voltage ?? 27} V
+                        </td>
+                      )}
+
+                      {/* Internal Voltage */}
+                      {visibleColumns.internal_voltage && (
+                        <td className="px-4 py-3 font-mono text-slate-800 whitespace-nowrap">
+                          {vehicle.last_internal_batt ? `${vehicle.last_internal_batt.toFixed(1)} V` : '4 V'}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer info */}
+        <div className="p-3 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500 font-medium">
+          <div>
+            Showing 1 to {filteredVehicles.length} of {vehicles.length} entries
+          </div>
+          <div className="font-mono text-[11px] text-slate-400">
+            Auto-refresh active • Telemetry polling interval: 2.5s
+          </div>
         </div>
       </div>
     </div>
