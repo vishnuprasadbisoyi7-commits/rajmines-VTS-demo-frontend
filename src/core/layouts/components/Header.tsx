@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router';
-import { Compass } from 'lucide-react';
+import { Compass, FileText } from 'lucide-react';
 import rminesLogo from '@/assets/img/rmines-logo.png';
 
 export const Header: React.FC = () => {
@@ -9,7 +9,7 @@ export const Header: React.FC = () => {
     // { label: 'Route Playback', path: '/playback', icon: PlayCircle },
     // { label: 'Alerts & SOS', path: '/alerts', icon: ShieldAlert },
     // { label: 'List View', path: '/geofences', icon: MapPin },
-    // { label: 'Trip Reports', path: '/e-ravanna', icon: FileText },
+    { label: 'Trip Reports', path: '/e-ravanna', icon: FileText },
     // { label: 'AIS - 140 Terminal', path: '/ais140', icon: Terminal },
   ];
 
