@@ -3,7 +3,17 @@ import ERavannaView from './views/ERavannaView';
 
 export const ERavannaRoutes = [
   {
-    path: '/e-ravanna',
+    path: '/trip-reports',
+    Component: FullLayout,
+    children: [
+      {
+        path: '',
+        Component: ERavannaView,
+      },
+    ],
+  },
+  {
+    path: '/e-rawanna',
     Component: FullLayout,
     children: [
       {

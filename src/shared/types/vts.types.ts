@@ -34,6 +34,7 @@ export interface Vehicle {
   active_e_ravanna?: string;
   input_voltage?: number;
   gps_fix?: number;
+  vendor?: string;
 }
 
 export interface TelemetryPoint {

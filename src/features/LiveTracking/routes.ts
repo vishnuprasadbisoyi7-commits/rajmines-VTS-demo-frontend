@@ -3,15 +3,21 @@ import LiveTrackingView from './views/LiveTrackingView';
 
 export const LiveTrackingRoutes = [
   {
-    path: '/',
+    path: '/map',
     Component: FullLayout,
     children: [
       {
         path: '',
         Component: LiveTrackingView,
       },
+    ],
+  },
+  {
+    path: '/live-tracking',
+    Component: FullLayout,
+    children: [
       {
-        path: 'live-tracking',
+        path: '',
         Component: LiveTrackingView,
       },
     ],

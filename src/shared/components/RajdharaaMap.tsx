@@ -48,6 +48,8 @@ interface RajdharaaMapProps {
   enableClickGeocode?: boolean;
   onGeocodeResult?: (result: ReverseGeocodeResult) => void;
   hideEmbeddedSearch?: boolean;
+  initialCenter?: [number, number];
+  initialZoom?: number;
 }
 
 export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
@@ -69,6 +71,8 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       enableClickGeocode = true,
       onGeocodeResult,
       hideEmbeddedSearch = false,
+      initialCenter,
+      initialZoom = 13,
     },
     ref
   ) => {
@@ -165,13 +169,21 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
     useEffect(() => {
       if (!mapContainerRef.current || mapInstanceRef.current) return;
 
+      const defaultCenter: [number, number] =
+        initialCenter ||
+        (vehicles.length > 0 && vehicles[0].last_latitude
+          ? [vehicles[0].last_latitude, vehicles[0].last_longitude]
+          : [27.0425, 74.7214]);
+
+      const defaultZoom = initialZoom ?? 13;
+
       const map = L.map(mapContainerRef.current, {
-        center: RAJASTHAN_STATE_CENTER,
-        zoom: 7,
-        minZoom: 6,
+        center: defaultCenter,
+        zoom: defaultZoom,
+        minZoom: 5,
         maxZoom: 19,
         maxBounds: RAJASTHAN_BOUNDS,
-        maxBoundsViscosity: 1.0,
+        maxBoundsViscosity: 0.8,
         zoomControl: false,
       });
 
@@ -601,8 +613,11 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
     // 9. Center on Selected Vehicle
     useEffect(() => {
       if (selectedVehicle && mapInstanceRef.current) {
-        mapInstanceRef.current.panTo(
+        const currentZoom = mapInstanceRef.current.getZoom();
+        const targetZoom = Math.max(currentZoom, 13);
+        mapInstanceRef.current.flyTo(
           [selectedVehicle.last_latitude, selectedVehicle.last_longitude],
+          targetZoom,
           { animate: true, duration: 0.8 }
         );
       }

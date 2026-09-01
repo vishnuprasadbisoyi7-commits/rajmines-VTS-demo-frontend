@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import type { ERavannaPass } from '@/shared/types/vts.types';
 import { vtsApi } from '@/shared/services/vtsApi';
 import {
-  FileText,
   Download,
   ExternalLink,
   RefreshCw,
+  Search,
+  ChevronDown,
 } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { ROUTES } from '@/shared/constants/app.constants';
 
 export const ERavannaView: React.FC = () => {
   const [passes, setPasses] = useState<ERavannaPass[]>([]);
@@ -85,83 +87,16 @@ export const ERavannaView: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4.5rem)] p-4 space-y-3 bg-slate-50">
-      {/* Breadcrumb / Top Title */}
-      <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-base font-extrabold text-slate-900 tracking-wide">
-              Trip Reports
-            </h1>
-            <p className="text-xs text-slate-500">
-              Department of Mines & Geology Rajasthan • e-Ravanna Mineral Transit Log
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadPasses}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-          <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800">
-            Total {filteredPasses.length} Trips Logged
-          </span>
-        </div>
-      </div>
-
-      {/* Filter Row Form matching Screenshot 2 */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-        <h2 className="text-xs font-bold text-slate-800 mb-3 tracking-wide">Trip Report Filter</h2>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
-          {/* Vehicle No */}
-          <div>
-            <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-              Vehicle No
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search Vehicle No"
-                value={vehicleNoSearch}
-                onChange={(e) => setVehicleNoSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
-              />
-            </div>
-          </div>
-
-          {/* Erawana No */}
-          <div>
-            <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-              Erawana No
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search Erawana No"
-                value={erawanaNoSearch}
-                onChange={(e) => setErawanaNoSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
-              />
-            </div>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-              Status
-            </label>
+    <div className="bg-white dark:bg-[#0a192f] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs overflow-hidden flex flex-col min-h-[calc(100vh-6.5rem)]">
+      {/* Top Filter Bar */}
+      <div className="p-4 md:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#0a192f]">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+          {/* Status Dropdown */}
+          <div className="relative">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              className="appearance-none bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl pl-3.5 pr-8 py-2.5 hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none focus:border-cyan-600 transition shadow-2xs cursor-pointer"
             >
               <option value="ALL">All Status</option>
               <option value="IN_TRANSIT">In Transit</option>
@@ -169,183 +104,197 @@ export const ERavannaView: React.FC = () => {
               <option value="ROUTE_DEVIATED">Route Deviated</option>
               <option value="EXPIRED">Expired</option>
             </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Start Date */}
-          <div>
-            <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-              Start Date
-            </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
+          {/* Vehicle No Search */}
+          <div className="relative w-44">
+            <input
+              type="text"
+              placeholder="Search Vehicle No"
+              value={vehicleNoSearch}
+              onChange={(e) => setVehicleNoSearch(e.target.value)}
+              className="w-full bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs rounded-xl pl-3 pr-7 py-2.5 hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none focus:border-cyan-600 transition shadow-2xs"
+            />
+            {vehicleNoSearch ? (
+              <button
+                onClick={() => setVehicleNoSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+              >
+                ×
+              </button>
+            ) : (
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            )}
           </div>
 
-          {/* End Date */}
-          <div>
-            <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-              End Date
-            </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
+          {/* Erawana No Search */}
+          <div className="relative w-44">
+            <input
+              type="text"
+              placeholder="Search Erawana No"
+              value={erawanaNoSearch}
+              onChange={(e) => setErawanaNoSearch(e.target.value)}
+              className="w-full bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs rounded-xl pl-3 pr-7 py-2.5 hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none focus:border-cyan-600 transition shadow-2xs"
+            />
+            {erawanaNoSearch ? (
+              <button
+                onClick={() => setErawanaNoSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+              >
+                ×
+              </button>
+            ) : (
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            )}
           </div>
 
-          {/* Export Button */}
-          <div>
-            <button
-              onClick={handleExportCSV}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition shadow-xs"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span>Export</span>
-            </button>
+          {/* Date range */}
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:border-cyan-600 shadow-2xs"
+            />
+            <span className="text-slate-400 text-xs">-</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:border-cyan-600 shadow-2xs"
+            />
           </div>
+        </div>
+
+        {/* Right buttons: Refresh & Export */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadPasses}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 dark:text-slate-400 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            <span>Export CSV</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Table Container matching Screenshot 2 */}
-      <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col min-h-0">
-        <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            {/* Table Header */}
-            <thead className="bg-slate-50/80 sticky top-0 z-10 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+      {/* Main Table */}
+      <div className="flex-1 overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-[#0a192f] text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+              <th className="py-3.5 px-4 whitespace-nowrap w-12">#</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">Erawana No</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">Vehicle No</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">Lease No</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">Generation Time</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">Trip Start</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">Trip End</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">Deviation</th>
+              <th className="py-3.5 px-4 whitespace-nowrap">Trip Status</th>
+              <th className="py-3.5 px-4 whitespace-nowrap text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs text-slate-700 dark:text-slate-300">
+            {loading ? (
               <tr>
-                <th className="px-4 py-3.5 whitespace-nowrap w-12">#</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Erawana No</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Vehicle No</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Lease No</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Generation Time</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Trip Start</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Trip End</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Deviation</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">Trip Status</th>
-                <th className="px-4 py-3.5 whitespace-nowrap text-center">Action</th>
+                <td colSpan={10} className="text-center py-12 text-slate-400">
+                  Loading trip reports...
+                </td>
               </tr>
-            </thead>
+            ) : filteredPasses.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="text-center py-12 text-slate-400">
+                  No trips found matching filter criteria.
+                </td>
+              </tr>
+            ) : (
+              filteredPasses.map((pass, idx) => {
+                const isCompleted = pass.status === 'COMPLETED';
+                const isDeviated = pass.status === 'ROUTE_DEVIATED';
 
-            {/* Table Body */}
-            <tbody className="divide-y divide-slate-100">
-              {filteredPasses.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={10}
-                    className="p-16 text-center text-slate-400 text-xs font-medium"
-                  >
-                    No trips found for this date range.
-                  </td>
-                </tr>
-              ) : (
-                filteredPasses.map((pass, idx) => {
-                  const isCompleted = pass.status === 'COMPLETED';
-                  const isDeviated = pass.status === 'ROUTE_DEVIATED';
+                return (
+                  <tr key={pass.pass_no || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
+                    <td className="py-3.5 px-4 text-slate-400 font-mono font-semibold">
+                      {idx + 1}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-amber-800 dark:text-amber-400 whitespace-nowrap">
+                      {pass.pass_no}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                      {pass.vehicle_reg_no}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      {pass.lease_id}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
+                      {pass.generation_time || new Date(pass.dispatch_time).toLocaleString()}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
+                      {pass.trip_start || new Date(pass.dispatch_time).toLocaleTimeString()}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
+                      {pass.trip_end || (isCompleted ? new Date(pass.valid_upto).toLocaleTimeString() : 'In Progress')}
+                    </td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          isDeviated
+                            ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                            : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                        }`}
+                      >
+                        {pass.deviation || (isDeviated ? 'Route Breach' : 'No Deviation')}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span
+                        className={`inline-block px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase ${
+                          pass.status === 'IN_TRANSIT'
+                            ? 'bg-[#dcfce7] dark:bg-emerald-900/50 text-[#16a34a] dark:text-emerald-300'
+                            : pass.status === 'COMPLETED'
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            : pass.status === 'ROUTE_DEVIATED'
+                            ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300'
+                            : 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300'
+                        }`}
+                      >
+                        {pass.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 whitespace-nowrap text-center">
+                      <button
+                        onClick={() => navigate(`${ROUTES.PLAYBACK}?reg_no=${pass.vehicle_reg_no}`)}
+                        className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 transition"
+                      >
+                        <span>Replay</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
-                  return (
-                    <tr
-                      key={pass.pass_no || idx}
-                      className="hover:bg-slate-50/70 transition-colors"
-                    >
-                      {/* # */}
-                      <td className="px-4 py-3 text-slate-400 font-mono font-semibold">
-                        {idx + 1}
-                      </td>
-
-                      {/* Erawana No */}
-                      <td className="px-4 py-3 font-mono font-bold text-amber-800 whitespace-nowrap">
-                        {pass.pass_no}
-                      </td>
-
-                      {/* Vehicle No */}
-                      <td className="px-4 py-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                        {pass.vehicle_reg_no}
-                      </td>
-
-                      {/* Lease No */}
-                      <td className="px-4 py-3 font-mono text-slate-600 whitespace-nowrap">
-                        {pass.lease_id}
-                      </td>
-
-                      {/* Generation Time */}
-                      <td className="px-4 py-3 text-slate-700 whitespace-nowrap font-mono">
-                        {pass.generation_time || new Date(pass.dispatch_time).toLocaleString()}
-                      </td>
-
-                      {/* Trip Start */}
-                      <td className="px-4 py-3 text-slate-700 whitespace-nowrap font-mono">
-                        {pass.trip_start || new Date(pass.dispatch_time).toLocaleTimeString()}
-                      </td>
-
-                      {/* Trip End */}
-                      <td className="px-4 py-3 text-slate-700 whitespace-nowrap font-mono">
-                        {pass.trip_end || (isCompleted ? new Date(pass.valid_upto).toLocaleTimeString() : 'In Progress')}
-                      </td>
-
-                      {/* Deviation */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            isDeviated
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}
-                        >
-                          {pass.deviation || (isDeviated ? 'Route Breach' : 'No Deviation')}
-                        </span>
-                      </td>
-
-                      {/* Trip Status */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                            pass.status === 'IN_TRANSIT'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : pass.status === 'COMPLETED'
-                              ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                              : pass.status === 'ROUTE_DEVIATED'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-rose-100 text-rose-700 border border-rose-200'
-                          }`}
-                        >
-                          {pass.status.replace('_', ' ')}
-                        </span>
-                      </td>
-
-                      {/* Action */}
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
-                        <button
-                          onClick={() => navigate(`/playback?reg_no=${pass.vehicle_reg_no}`)}
-                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 transition"
-                        >
-                          <span>Replay</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+      {/* Footer count */}
+      <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0c1e38] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium px-4">
+        <div>
+          Showing {filteredPasses.length} of {passes.length} trip records
         </div>
-
-        {/* Footer info */}
-        <div className="p-3 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500 font-medium">
-          <div>
-            Showing 1 to {filteredPasses.length} of {passes.length} trip entries
-          </div>
-          <div className="font-mono text-[11px] text-slate-400">
-            DMG e-Ravanna Verification Online
-          </div>
+        <div className="font-mono text-[11px] text-slate-400">
+          DMG e-Ravanna Portal Log
         </div>
       </div>
     </div>

@@ -12,4 +12,14 @@ export const RoutePlaybackRoutes = [
       },
     ],
   },
+  {
+    path: '/vehicle-replay',
+    Component: FullLayout,
+    children: [
+      {
+        path: '',
+        Component: RoutePlaybackView,
+      },
+    ],
+  },
 ];

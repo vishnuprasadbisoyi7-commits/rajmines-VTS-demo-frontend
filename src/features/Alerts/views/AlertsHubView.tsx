@@ -1,30 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import type { AlertRecord } from '@/shared/types/vts.types';
 import { vtsApi } from '@/shared/services/vtsApi';
 import { useVtsWebSocket } from '@/shared/hooks/useVtsWebSocket';
-import {
-  ShieldAlert,
-  AlertTriangle,
-  Gauge,
-  MapPin,
-  BatteryWarning,
-  CheckCircle2,
-  Clock,
-} from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 
 export const AlertsHubView: React.FC = () => {
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [severityFilter, setSeverityFilter] = useState<string>('ALL');
+
   const { recentAlerts } = useVtsWebSocket();
 
   useEffect(() => {
     async function loadAlerts() {
+      setLoading(true);
       const list = await vtsApi.getAlerts();
       setAlerts(list);
+      setLoading(false);
     }
     loadAlerts();
   }, []);
 
-  // Merge websocket alerts
+  // Merge websocket live alerts
   useEffect(() => {
     if (recentAlerts.length > 0) {
       setAlerts((prev) => {
@@ -35,131 +33,130 @@ export const AlertsHubView: React.FC = () => {
     }
   }, [recentAlerts]);
 
-  const handleResolve = async (id: string) => {
-    const ok = await vtsApi.resolveAlert(id);
-    if (ok) {
-      setAlerts((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, is_resolved: true } : a))
-      );
-    }
-  };
+  const filteredAlerts = useMemo(() => {
+    return alerts.filter((alert) => {
+      const matchesSearch =
+        !searchTerm.trim() ||
+        alert.reg_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        alert.message.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const getAlertIcon = (type: string) => {
-    switch (type) {
-      case 'SOS_EMERGENCY':
-        return <ShieldAlert className="w-5 h-5 text-rose-400" />;
-      case 'OVERSPEED':
-        return <Gauge className="w-5 h-5 text-amber-400" />;
-      case 'GEOFENCE_BREACH':
-        return <MapPin className="w-5 h-5 text-indigo-400" />;
-      case 'BATTERY_TAMPER':
-        return <BatteryWarning className="w-5 h-5 text-orange-400" />;
-      default:
-        return <AlertTriangle className="w-5 h-5 text-yellow-400" />;
-    }
-  };
+      const matchesSeverity =
+        severityFilter === 'ALL' ||
+        alert.severity.toUpperCase() === severityFilter.toUpperCase();
+
+      return matchesSearch && matchesSeverity;
+    });
+  }, [alerts, searchTerm, severityFilter]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4.5rem)] p-4 space-y-4">
-      {/* Top Banner */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200">
-            <ShieldAlert className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-base font-extrabold text-slate-900 tracking-wide">
-              Mining Fleet Alerts & Security Incident Hub
-            </h1>
-            <p className="text-xs text-slate-500">
-              Department of Mines & Geology Rajasthan • Central Vigilance Alert Monitoring
-            </p>
-          </div>
+    <div className="bg-white dark:bg-[#0a192f] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs overflow-hidden flex flex-col min-h-[calc(100vh-6.5rem)]">
+      {/* Top Filter Bar */}
+      <div className="p-4 md:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 bg-white dark:bg-[#0a192f]">
+        {/* Search vehicle */}
+        <div className="relative flex-1 max-w-sm">
+          <input
+            type="text"
+            placeholder="Search vehicle..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs rounded-xl pl-3.5 pr-8 py-2.5 hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none focus:border-cyan-600 transition shadow-2xs"
+          />
+          {searchTerm ? (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+            >
+              ×
+            </button>
+          ) : (
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono font-bold">
-            {alerts.filter((a) => !a.is_resolved).length} Unresolved Incidents
-          </span>
+        {/* Severity dropdown */}
+        <div className="relative">
+          <select
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+            className="appearance-none bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl pl-3.5 pr-8 py-2.5 hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none focus:border-cyan-600 transition shadow-2xs cursor-pointer min-w-[130px]"
+          >
+            <option value="ALL">All Severity</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
       </div>
 
-      {/* Alert List */}
-      <div className="flex-1 overflow-y-auto space-y-3">
-        {alerts.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs bg-white rounded-xl border border-slate-200 shadow-sm">
-            No alerts logged currently. Fleet is operating normally.
-          </div>
-        ) : (
-          alerts.map((alert) => {
-            const isSOS = alert.alert_type === 'SOS_EMERGENCY';
+      {/* Main Alerts Table */}
+      <div className="flex-1 overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-[#0a192f] text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+              <th className="py-3.5 px-6 font-semibold">Vehicle</th>
+              <th className="py-3.5 px-6 font-semibold">Alert</th>
+              <th className="py-3.5 px-6 font-semibold">Severity</th>
+              <th className="py-3.5 px-6 font-semibold">Event Time</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs text-slate-700 dark:text-slate-300">
+            {loading ? (
+              <tr>
+                <td colSpan={4} className="text-center py-12 text-slate-400">
+                  Loading alerts history...
+                </td>
+              </tr>
+            ) : filteredAlerts.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="text-center py-12 text-slate-400">
+                  No alerts found matching current filter.
+                </td>
+              </tr>
+            ) : (
+              filteredAlerts.map((alert) => {
+                const severity = alert.severity.toLowerCase();
 
-            return (
-              <div
-                key={alert.id}
-                className={`p-4 rounded-xl border transition shadow-sm ${
-                  alert.is_resolved
-                    ? 'bg-slate-50 border-slate-200 opacity-75'
-                    : isSOS
-                    ? 'bg-rose-50/80 border-rose-300'
-                    : 'bg-white border-slate-200'
-                }`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-2 pb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-                      {getAlertIcon(alert.alert_type)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-bold text-slate-900">{alert.reg_no}</span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                            alert.severity === 'CRITICAL'
-                              ? 'bg-rose-100 text-rose-700 border border-rose-300'
-                              : 'bg-amber-100 text-amber-800 border border-amber-300'
-                          }`}
-                        >
-                          {alert.severity}
-                        </span>
-                      </div>
-                      <div className="text-[11px] font-mono text-slate-400">IMEI: {alert.imei}</div>
-                    </div>
-                  </div>
+                return (
+                  <tr
+                    key={alert.id}
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition"
+                  >
+                    {/* Vehicle */}
+                    <td className="py-3.5 px-6 font-medium text-slate-900 dark:text-slate-100 font-mono">
+                      {alert.reg_no}
+                    </td>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
-                      <Clock className="w-3.5 h-3.5 text-cyan-600" />
-                      {new Date(alert.timestamp).toLocaleTimeString()}
-                    </span>
+                    {/* Alert Description */}
+                    <td className="py-3.5 px-6 text-slate-700 dark:text-slate-300">
+                      {alert.message || 'Vehicle Battery Disconnect'}
+                    </td>
 
-                    {!alert.is_resolved ? (
-                      <button
-                        onClick={() => handleResolve(alert.id)}
-                        className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                    {/* Severity Badge */}
+                    <td className="py-3.5 px-6">
+                      <span
+                        className={`inline-block px-3 py-0.5 rounded-full text-[11px] font-semibold lowercase tracking-wide text-white shadow-2xs ${
+                          severity === 'high'
+                            ? 'bg-[#ea580c]'
+                            : severity === 'medium'
+                            ? 'bg-[#eab308]'
+                            : 'bg-[#0284c7]'
+                        }`}
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Resolve
-                      </button>
-                    ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200">
-                        Resolved
+                        {severity}
                       </span>
-                    )}
-                  </div>
-                </div>
+                    </td>
 
-                <div className="text-xs text-slate-700 leading-relaxed font-medium">{alert.message}</div>
-
-                <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-200 font-mono">
-                  <span>
-                    Location: {alert.latitude.toFixed(4)}° N, {alert.longitude.toFixed(4)}° E
-                  </span>
-                  <span>Speed: {Math.round(alert.speed)} km/h</span>
-                </div>
-              </div>
-            );
-          })
-        )}
+                    {/* Event Time */}
+                    <td className="py-3.5 px-6 font-mono text-slate-600 dark:text-slate-400">
+                      {alert.timestamp || '2026-09-01 10:14:48'}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
