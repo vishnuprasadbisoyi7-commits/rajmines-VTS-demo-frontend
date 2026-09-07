@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Download,
@@ -9,9 +9,8 @@ import {
   Navigation,
   ExternalLink,
 } from 'lucide-react';
-import type { VehicleTelemetryViewDto, LiveVehicleApiItem } from '@/shared/types/vts.types';
-// OLD API Hook - Commented out as requested:
-// import { useLiveTelemetry } from '@/shared/hooks/useLiveTelemetry';
+import type { VehicleTelemetryViewDto } from '@/shared/types/vts.types';
+import { useLiveTelemetry } from '@/shared/hooks/useLiveTelemetry';
 import { ROUTES } from '@/shared/constants/app.constants';
 
 interface ColumnDef {
@@ -54,67 +53,10 @@ function formatCreatedAt(createdAt?: string): string {
 
 export const ListView: React.FC = () => {
   const navigate = useNavigate();
-
-  // OLD API: Commented out as requested
-  /*
   const { recentTelemetry, isLoading, isLiveConnected, lastSyncTime } = useLiveTelemetry(2000);
-  */
-
-  // NEW API: GET http://localhost:8082/vts/api/vehicle/live
-  const [telemetryList, setTelemetryList] = useState<VehicleTelemetryViewDto[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
-  const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [showColumnsMenu, setShowColumnsMenu] = useState<boolean>(false);
-
-  const fetchLiveVehicles = useCallback(async () => {
-    try {
-      // GET http://localhost:8082/vts/api/vehicle/live
-      let res: Response | null = null;
-      try {
-        res = await fetch('http://localhost:8082/vts/api/vehicle/live');
-      } catch {
-        // Fallback to Vite proxy
-        res = await fetch('/vts/api/vehicle/live');
-      }
-
-      if (res && res.ok) {
-        const json = await res.json();
-        const data: LiveVehicleApiItem[] = json.data || [];
-        const mapped: VehicleTelemetryViewDto[] = data.map((item, idx) => ({
-          id: idx + 1,
-          vehicleNo: item.vehicle_no,
-          imei: item.imei,
-          latitude: item.latitude,
-          longitude: item.longitude,
-          speed: item.speed,
-          heading: item.heading,
-          packetDate: item.packet_date,
-          packetTime: item.packet_time,
-          satellites: item.satellites,
-          altitude: item.altitude,
-          operator: item.operator,
-          createdAt: item.updated_at,
-        }));
-        setTelemetryList(mapped);
-        setIsLiveConnected(true);
-        setLastSyncTime(new Date().toLocaleTimeString());
-      }
-    } catch (err) {
-      console.error('Failed to fetch live vehicles:', err);
-      setIsLiveConnected(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchLiveVehicles();
-    const interval = setInterval(fetchLiveVehicles, 2000);
-    return () => clearInterval(interval);
-  }, [fetchLiveVehicles]);
 
   const [columns, setColumns] = useState<ColumnDef[]>([
     { key: 'id', label: 'Packet ID', visible: true },
@@ -132,7 +74,7 @@ export const ListView: React.FC = () => {
   ]);
 
   const filteredTelemetry = useMemo(() => {
-    return telemetryList.filter((item) => {
+    return recentTelemetry.filter((item) => {
       const vNo = (item.vehicleNo || '').toLowerCase();
       const imei = (item.imei || '').toLowerCase();
       const op = (item.operator || '').toLowerCase();
@@ -154,7 +96,7 @@ export const ListView: React.FC = () => {
 
       return matchesSearch && matchesStatus;
     });
-  }, [telemetryList, searchTerm, statusFilter]);
+  }, [recentTelemetry, searchTerm, statusFilter]);
 
   const toggleColumn = (key: string) => {
     setColumns((prev) =>
@@ -238,7 +180,7 @@ export const ListView: React.FC = () => {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="appearance-none bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl pl-3.5 pr-8 py-2.5 hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none focus:border-cyan-600 transition shadow-2xs cursor-pointer"
             >
-              <option value="ALL">All Vehicles ({telemetryList.length})</option>
+              <option value="ALL">All Packets ({recentTelemetry.length})</option>
               <option value="MOVING">Moving (&gt; 2 km/h)</option>
               <option value="IDLE">Idle / Stopped (≤ 2 km/h)</option>
             </select>
@@ -348,14 +290,14 @@ export const ListView: React.FC = () => {
                 <td colSpan={13} className="text-center py-12 text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Radio className="w-6 h-6 text-cyan-600 animate-pulse" />
-                    <span>Loading live vehicles from API (http://localhost:8082/vts/api/vehicle/live)...</span>
+                    <span>Loading continuous telemetry stream from Spring Boot API...</span>
                   </div>
                 </td>
               </tr>
             ) : filteredTelemetry.length === 0 ? (
               <tr>
                 <td colSpan={13} className="text-center py-12 text-slate-400">
-                  No live vehicles matching current filter.
+                  No telemetry packets matching current filter.
                 </td>
               </tr>
             ) : (

@@ -91,9 +91,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Top Brand */}
         <div className="p-4 md:p-5 border-b border-[#0e2a47]/50 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 rounded-lg bg-[#087f94] text-white font-bold flex items-center justify-center text-sm shadow-sm flex-shrink-0">
+            {/* <div className="w-8 h-8 rounded-lg bg-[#087f94] text-white font-bold flex items-center justify-center text-sm shadow-sm flex-shrink-0">
               R
-            </div>
+            </div> */}
             {!isCollapsed && (
               <h1 className="text-lg font-bold text-white tracking-tight whitespace-nowrap transition-opacity duration-200">
                 Rajasthan Mining

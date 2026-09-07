@@ -210,24 +210,3 @@ export interface GISMetaResponse {
   state_center: [number, number];
   default_zoom: number;
 }
-
-// Alerts API: GET http://localhost:8082/vts/api/vehicle/alerts?limit=50
-export interface VehicleAlertApiItem {
-  id: number;
-  vehicle_no: string;
-  imei: string;
-  alert_type: string;
-  alert_message: string;
-  latitude: number;
-  longitude: number;
-  speed: number;
-  packet_date: string;
-  packet_time: string;
-  created_at: string;
-}
-
-export interface VehicleAlertsApiResponse {
-  alerts: VehicleAlertApiItem[];
-  count: number;
-}
-

@@ -90,7 +90,6 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
     const checkpostLayersRef = useRef<L.LayerGroup | null>(null);
     const trailPolylineRef = useRef<L.Polyline | null>(null);
     const geocodeMarkerRef = useRef<L.Marker | null>(null);
-    const prevSelectedRegNoRef = useRef<string | null>(null);
 
     // EXCESS: Search & geocode states - Commented out for production (uncomment to restore):
     /*
@@ -605,24 +604,15 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
         }).addTo(map);
 
         trailPolylineRef.current = polyline;
-        // EXCESS / JITTER: Commented out fitBounds so recurring trail updates do not shift or reload map viewport:
-        // map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+        map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
       }
     }, [showTrail, trailPoints]);
 
-    // 9. Center on Selected Vehicle (ONLY when user selects a different vehicle, keeping map static while the vehicle moves)
+    // 9. Center on Selected Vehicle
     useEffect(() => {
-      if (!selectedVehicle) {
-        prevSelectedRegNoRef.current = null;
-        return;
-      }
-      if (!mapInstanceRef.current) return;
-
-      // Only flyTo/center when a DIFFERENT vehicle is selected, keeping the map static as live coordinates update
-      if (prevSelectedRegNoRef.current !== selectedVehicle.reg_no) {
-        prevSelectedRegNoRef.current = selectedVehicle.reg_no;
+      if (selectedVehicle && mapInstanceRef.current) {
         const currentZoom = mapInstanceRef.current.getZoom();
-        const targetZoom = Math.max(currentZoom, 14);
+        const targetZoom = Math.max(currentZoom, 13);
         mapInstanceRef.current.flyTo(
           [selectedVehicle.last_latitude, selectedVehicle.last_longitude],
           targetZoom,

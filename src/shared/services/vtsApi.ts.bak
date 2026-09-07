@@ -8,7 +8,6 @@ import type {
   Vehicle,
   VehicleTelemetryViewDto,
   LiveVehicleApiResponse,
-  VehicleAlertsApiResponse,
 } from '../types/vts.types';
 
 const SPRING_TELEMETRY_API_BASE = 'http://localhost:8082/vts/api/telemetry-view';
@@ -204,8 +203,6 @@ export const vtsApi = {
     }
   },
 
-  // OLD API: Commented out as requested
-  /*
   async getAlerts(): Promise<AlertRecord[]> {
     try {
       const res = await fetch(`${API_BASE}/alerts`);
@@ -215,51 +212,6 @@ export const vtsApi = {
     } catch {
       return getFallbackAlerts();
     }
-  },
-  */
-
-  // NEW API: GET http://localhost:8082/vts/api/vehicle/alerts?limit=50
-  async getVehicleAlerts(limit: number = 50): Promise<VehicleAlertsApiResponse | null> {
-    try {
-      const res = await fetch(`http://localhost:8082/vts/api/vehicle/alerts?limit=${limit}`);
-      if (res.ok) {
-        return (await res.json()) as VehicleAlertsApiResponse;
-      }
-    } catch {
-      try {
-        const res = await fetch(`/vts/api/vehicle/alerts?limit=${limit}`);
-        if (res.ok) {
-          return (await res.json()) as VehicleAlertsApiResponse;
-        }
-      } catch {}
-    }
-    return null;
-  },
-
-  async getAlerts(): Promise<AlertRecord[]> {
-    const res = await this.getVehicleAlerts(50);
-    if (res && res.alerts && res.alerts.length > 0) {
-      return res.alerts.map((a) => ({
-        id: String(a.id),
-        vehicle_id: a.vehicle_no,
-        reg_no: a.vehicle_no,
-        imei: a.imei,
-        alert_type: a.alert_type as any,
-        severity:
-          a.alert_type === 'EMERGENCY'
-            ? 'CRITICAL'
-            : a.alert_type === 'OVERSPEED' || a.alert_type === 'POWER_CUT'
-            ? 'HIGH'
-            : 'MEDIUM',
-        message: a.alert_message,
-        latitude: a.latitude,
-        longitude: a.longitude,
-        speed: a.speed,
-        timestamp: a.created_at,
-        is_resolved: false,
-      }));
-    }
-    return getFallbackAlerts();
   },
 
   async resolveAlert(alertId: string): Promise<boolean> {
