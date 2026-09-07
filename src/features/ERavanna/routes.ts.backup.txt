@@ -1,5 +1,5 @@
 import FullLayout from '@/core/layouts/FullLayout';
-import TripReportsView from '@/features/TripReports/views/TripReportsView';
+import ERavannaView from './views/ERavannaView';
 
 export const ERavannaRoutes = [
   {
@@ -8,7 +8,7 @@ export const ERavannaRoutes = [
     children: [
       {
         path: '',
-        Component: TripReportsView,
+        Component: ERavannaView,
       },
     ],
   },
@@ -18,9 +18,8 @@ export const ERavannaRoutes = [
     children: [
       {
         path: '',
-        Component: TripReportsView,
+        Component: ERavannaView,
       },
     ],
   },
 ];
-

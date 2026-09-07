@@ -260,4 +260,43 @@ export interface RawannaTransitDetails {
   consignee_address?: string;
 }
 
+// Trip Reports Model matching Production Interface (Image 1, 2 & 3)
+export interface TripEndpoint {
+  coords: [number, number];
+  name: string;
+  subtext?: string;
+}
+
+export interface TripReportRecord {
+  id: number;
+  erawana_no: string;
+  vehicle_no: string;
+  lease_no: string;
+  generation_time: string;
+  trip_start: string;
+  trip_end: string;
+  deviation: 'No' | 'Yes';
+  trip_status: 'Trip_yet_to_start' | 'In_Transit' | 'Completed' | 'Route_Deviated';
+  total_gps_points: number;
+  planned_route: [number, number][];
+  actual_route: [number, number][];
+  deviated_route: [number, number][];
+  point_a: TripEndpoint;
+  point_b: TripEndpoint;
+}
+
+export interface TripReportFilterParams {
+  vehicle_no?: string;
+  erawana_no?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface TripReportApiResponse {
+  count: number;
+  trips: TripReportRecord[];
+}
+
+
 

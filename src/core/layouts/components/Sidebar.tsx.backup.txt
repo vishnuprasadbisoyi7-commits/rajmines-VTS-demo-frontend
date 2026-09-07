@@ -6,7 +6,7 @@ import {
   ListFilter,
   Route,
   TriangleAlert,
-  ClipboardList,
+  Calendar,
   LogOut,
 } from 'lucide-react';
 import { ROUTES } from '@/shared/constants/app.constants';
@@ -61,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Trip Reports',
       path: ROUTES.TRIP_REPORTS,
       altPaths: [ROUTES.E_RAVANNA],
-      icon: ClipboardList,
+      icon: Calendar,
     },
   ];
 
