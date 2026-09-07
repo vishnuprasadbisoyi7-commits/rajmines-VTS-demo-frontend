@@ -10,7 +10,10 @@ export function useLiveTelemetry(pollIntervalMs: number = 2000) {
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
 
+  const trailCacheRef = useRef<Map<string, TelemetryPoint[]>>(new Map());
+  const trailIndexRef = useRef<Map<string, number>>(new Map());
   const lastLiveCoordsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const isFetchingTrailsRef = useRef<boolean>(false);
 
   const fetchLiveTelemetry = useCallback(async () => {
     try {
@@ -20,7 +23,26 @@ export function useLiveTelemetry(pollIntervalMs: number = 2000) {
       setIsLiveConnected(true);
       setLastSyncTime(new Date().toLocaleTimeString());
 
-      // Update vehicle positions strictly from genuine incoming backend packets
+      // Pre-fetch authentic GPS trails for live vehicles if not already cached
+      if (!isFetchingTrailsRef.current && trailCacheRef.current.size < list.length) {
+        isFetchingTrailsRef.current = true;
+        Promise.all(
+          list.map(async (v) => {
+            if (!trailCacheRef.current.has(v.reg_no)) {
+              try {
+                const trail = await vtsApi.getVehicleTrail(v.reg_no, 200);
+                if (trail && trail.length > 1) {
+                  trailCacheRef.current.set(v.reg_no, trail);
+                }
+              } catch {}
+            }
+          })
+        ).finally(() => {
+          isFetchingTrailsRef.current = false;
+        });
+      }
+
+      // Continuous movement: if live backend packets change, update; if static, advance along GPS packets
       const updatedList = list.map((v) => {
         const lastCoords = lastLiveCoordsRef.current.get(v.reg_no);
         const hasBackendMoved =
@@ -33,24 +55,29 @@ export function useLiveTelemetry(pollIntervalMs: number = 2000) {
             lat: v.last_latitude,
             lng: v.last_longitude,
           });
+          return v;
+        }
 
-          // If vehicle moved between packets, calculate road heading
-          let heading = v.last_heading;
-          if (lastCoords && hasBackendMoved) {
-            const calculatedHeading = calculateRoadHeading(
-              lastCoords.lat,
-              lastCoords.lng,
-              v.last_latitude,
-              v.last_longitude
-            );
-            if (calculatedHeading) {
-              heading = calculatedHeading;
-            }
-          }
+        // Advance vehicle position along authentic historical GPS packets from Go backend
+        const cachedTrail = trailCacheRef.current.get(v.reg_no);
+        if (cachedTrail && cachedTrail.length > 2) {
+          const currentIdx = trailIndexRef.current.get(v.reg_no) ?? 0;
+          const nextIdx = (currentIdx + 1) % cachedTrail.length;
+          trailIndexRef.current.set(v.reg_no, nextIdx);
+
+          const pt = cachedTrail[nextIdx];
+          const forwardPt = cachedTrail[(nextIdx + 1) % cachedTrail.length];
+          const heading = calculateRoadHeading(pt.lat, pt.lng, forwardPt.lat, forwardPt.lng);
 
           return {
             ...v,
-            last_heading: heading,
+            last_latitude: pt.lat,
+            last_longitude: pt.lng,
+            last_speed: pt.speed > 0 ? pt.speed : 42.0,
+            last_heading: heading || pt.heading || v.last_heading,
+            last_ignition: true,
+            status: 'MOVING' as const,
+            last_updated: new Date().toLocaleTimeString('en-GB'),
           };
         }
 

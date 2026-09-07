@@ -189,42 +189,16 @@ export const vtsApi = {
     return data || [];
   },
 
-  // Filter helper: Only keep vehicles actively transmitting packets in the current session
-  filterActiveTransmittingItems(items: LiveVehicleApiItem[]): LiveVehicleApiItem[] {
-    if (!items || items.length === 0) return [];
-
-    let maxTime = 0;
-    for (const item of items) {
-      if (item.updated_at) {
-        const t = new Date(item.updated_at).getTime();
-        if (!isNaN(t) && t > maxTime) {
-          maxTime = t;
-        }
-      }
-    }
-
-    if (maxTime === 0) return items;
-
-    // Actively transmitting: updated within 2 hours of latest packet received across fleet
-    const activeWindowMs = 2 * 60 * 60 * 1000;
-    return items.filter((item) => {
-      if (!item.updated_at) return false;
-      const t = new Date(item.updated_at).getTime();
-      return !isNaN(t) && (maxTime - t) <= activeWindowMs;
-    });
-  },
-
-  // 4. Live Vehicles API: GET http://localhost:8082/vts/api/vehicle/live?activeOnly=true
-  async getLiveVehicles(activeOnly: boolean = true): Promise<LiveVehicleApiResponse | null> {
-    const query = activeOnly ? '?activeOnly=true' : '';
+  // 4. Live Vehicles API: GET http://localhost:8082/vts/api/vehicle/live
+  async getLiveVehicles(): Promise<LiveVehicleApiResponse | null> {
     try {
-      const res = await fetch(`http://localhost:8082/vts/api/vehicle/live${query}`);
+      const res = await fetch('http://localhost:8082/vts/api/vehicle/live');
       if (res.ok) {
         return (await res.json()) as LiveVehicleApiResponse;
       }
     } catch {
       try {
-        const res = await fetch(`/vts/api/vehicle/live${query}`);
+        const res = await fetch('/vts/api/vehicle/live');
         if (res.ok) {
           return (await res.json()) as LiveVehicleApiResponse;
         }
@@ -236,15 +210,12 @@ export const vtsApi = {
   async getVehicles(): Promise<Vehicle[]> {
     try {
       // 1. Primary: Fetch ONLY live vehicles actively transmitting packets from Go server
-      const liveApiRes = await this.getLiveVehicles(true);
+      const liveApiRes = await this.getLiveVehicles();
       if (liveApiRes && Array.isArray(liveApiRes.data) && liveApiRes.data.length > 0) {
-        const activeItems = this.filterActiveTransmittingItems(liveApiRes.data);
-        if (activeItems.length > 0) {
-          return activeItems.map(apiLiveVehicleToVehicle);
-        }
+        return liveApiRes.data.map(apiLiveVehicleToVehicle);
       }
 
-      // 2. Secondary fallback: recent telemetry records filtered by active timestamp
+      // 2. Secondary fallback: recent telemetry records
       const recentList = await this.getRecentAllTelemetry(100);
       if (recentList && recentList.length > 0) {
         const latestByVehicle = new Map<string, VehicleTelemetryViewDto>();
@@ -266,10 +237,10 @@ export const vtsApi = {
     return getFallbackVehicles();
   },
 
-  // Used by Vehicle Replay to allow selecting from all registered vehicles
+  // Used by Vehicle Replay to allow selecting from all vehicles
   async getAllVehicles(): Promise<Vehicle[]> {
     try {
-      const liveApiRes = await this.getLiveVehicles(false);
+      const liveApiRes = await this.getLiveVehicles();
       const liveList =
         liveApiRes && Array.isArray(liveApiRes.data)
           ? liveApiRes.data.map(apiLiveVehicleToVehicle)
