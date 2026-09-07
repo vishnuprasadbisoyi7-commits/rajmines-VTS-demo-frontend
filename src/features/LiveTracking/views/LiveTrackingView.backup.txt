@@ -1,17 +1,21 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router';
+import { useSearchParams } from 'react-router';
 import type {
   CheckpostFeature,
   GeofenceZone,
   GISLayerConfig,
   Vehicle,
   RawannaTransitDetails,
+  TelemetryPoint,
 } from '@/shared/types/vts.types';
 import { vtsApi } from '@/shared/services/vtsApi';
 import { useLiveTelemetry } from '@/shared/hooks/useLiveTelemetry';
 import { RajdharaaMap, type RajdharaaMapHandle } from '@/shared/components/RajdharaaMap';
 import { VehicleTelemetryDrawer } from '../components/VehicleTelemetryDrawer';
-import { calculateRoadHeading } from '@/shared/data/rawannaTransitData';
+import {
+  getRawannaTransitForVehicle,
+  calculateRoadHeading,
+} from '@/shared/data/rawannaTransitData';
 import {
   Search,
   FileText,
@@ -30,7 +34,6 @@ import {
 
 export const LiveTrackingView: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const mapRef = useRef<RajdharaaMapHandle | null>(null);
 
   const {
@@ -181,12 +184,49 @@ export const LiveTrackingView: React.FC = () => {
     return [selectedVehicle, ...liveVehiclesList];
   }, [liveVehiclesList, activeTransitDetails, selectedVehicle]);
 
-  // Open individual vehicle tracking in dedicated new page/component (matching user screenshot)
-  const handleTrackVehicle = (vehicle: Vehicle, e?: React.MouseEvent) => {
+  // Toggle transit simulation tracking for a vehicle
+  const handleToggleTransitTracking = async (vehicle: Vehicle, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    navigate(`/track-vehicle/${vehicle.reg_no}`);
-  };
 
+    // If already tracking this vehicle, toggle off
+    if (activeTransitDetails && activeTransitDetails.vehicle_reg_no === vehicle.reg_no) {
+      setActiveTransitDetails(null);
+      setSimStepIndex(0);
+      return;
+    }
+
+    // Fetch genuine GPS simulation packet history from backend for Point A -> B -> C
+    let historyPoints: TelemetryPoint[] = [];
+    try {
+      historyPoints = await vtsApi.getVehicleTrail(vehicle.reg_no, 200);
+    } catch {}
+
+    const transit = getRawannaTransitForVehicle(vehicle, historyPoints);
+    setActiveTransitDetails(transit);
+    setSimStepIndex(0);
+    setIsSimPaused(false);
+
+    const startCoord = transit.route_coordinates[0];
+    const nextCoord = transit.route_coordinates[1] || startCoord;
+    const initialHeading = calculateRoadHeading(
+      startCoord[0],
+      startCoord[1],
+      nextCoord[0],
+      nextCoord[1]
+    );
+
+    const startVehicle: Vehicle = {
+      ...vehicle,
+      last_latitude: startCoord[0],
+      last_longitude: startCoord[1],
+      last_heading: initialHeading,
+      last_speed: 42.0,
+      status: 'MOVING',
+      last_updated: new Date().toLocaleTimeString('en-GB'),
+    };
+
+    setSelectedVehicle(startVehicle);
+  };
 
   // Filtered vehicles for sidebar card list
   const filteredVehicles = useMemo(() => {
@@ -308,6 +348,7 @@ export const LiveTrackingView: React.FC = () => {
               const isSelected = selectedVehicle?.reg_no === vehicle.reg_no;
               const isMoving = vehicle.status === 'MOVING';
               const hasActiveRawanna = Boolean(vehicle.active_e_ravanna) && vehicle.active_e_ravanna !== 'N/A';
+              const isTrackingThis = activeTransitDetails?.vehicle_reg_no === vehicle.reg_no;
 
               return (
                 <div
@@ -401,14 +442,20 @@ export const LiveTrackingView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Track Vehicle Button (Opens individual vehicle tracking in dedicated page/component) */}
-                  <button
-                    onClick={(e) => handleTrackVehicle(vehicle, e)}
-                    className="w-full mt-2.5 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs bg-[#007b83] hover:bg-[#00636b] text-white"
-                  >
-                    <Navigation className="w-3.5 h-3.5" />
-                    <span>Track Vehicle</span>
-                  </button>
+                  {/* Track Vehicle Button (Active e-Rawanna transit simulation from Point A -> B -> C) */}
+                  {hasActiveRawanna && (
+                    <button
+                      onClick={(e) => handleToggleTransitTracking(vehicle, e)}
+                      className={`w-full mt-2.5 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                        isTrackingThis
+                          ? 'bg-[#005f66] text-white hover:bg-[#004f55] ring-2 ring-teal-400'
+                          : 'bg-[#007b83] hover:bg-[#00636b] text-white'
+                      }`}
+                    >
+                      <Navigation className={`w-3.5 h-3.5 ${isTrackingThis ? 'animate-pulse' : ''}`} />
+                      <span>{isTrackingThis ? 'Stop Tracking' : 'Track Vehicle'}</span>
+                    </button>
+                  )}
                 </div>
               );
             })
