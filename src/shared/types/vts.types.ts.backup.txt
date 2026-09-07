@@ -231,33 +231,3 @@ export interface VehicleAlertsApiResponse {
   count: number;
 }
 
-// Active e-Rawanna Transit Simulation Types (Point A -> B -> C)
-export interface RawannaTransitPoint {
-  label: string; // 'A' | 'B' | 'C'
-  name: string;
-  subtext?: string;
-  coords: [number, number];
-  type: 'ORIGIN' | 'WEIGHBRIDGE' | 'CONSIGNEE';
-}
-
-export interface RawannaTransitDetails {
-  pass_no: string;
-  vehicle_reg_no: string;
-  driver_name: string;
-  driver_phone: string;
-  mineral_name: string;
-  tonnage: string;
-  weighbridge_code: string;
-  pointA: RawannaTransitPoint;
-  pointB: RawannaTransitPoint;
-  pointC: RawannaTransitPoint;
-  route_coordinates: [number, number][];
-  generated_at: string;
-  expire_at: string;
-  status: string;
-  lessee_name?: string;
-  consignee_name?: string;
-  consignee_address?: string;
-}
-
-

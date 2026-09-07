@@ -196,23 +196,11 @@
 }
 
 /* Production vehicle marker styling & transitions */
-.replay-start-marker,
-.replay-end-marker,
-.transit-marker-a,
-.transit-marker-b,
-.transit-marker-c,
 .prod-vehicle-marker,
 .replay-marker {
   background: transparent !important;
   border: none !important;
   outline: none !important;
-  overflow: visible !important;
-}
-
-.prod-vehicle-marker,
-.replay-marker {
-  display: block !important;
-  pointer-events: auto !important;
 }
 
 /* Smooth vehicle movement when telemetry coordinates update in live fleet mode */
@@ -224,6 +212,5 @@
 .prod-vehicle-marker.replay-marker {
   transition: none !important;
 }
-
 
 

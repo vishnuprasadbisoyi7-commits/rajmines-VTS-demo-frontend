@@ -11,7 +11,7 @@ import {
   BatteryCharging,
   BatteryWarning,
   // Radio,
-  // MapPin,
+  MapPin,
   ExternalLink,
   AlertTriangle,
 } from 'lucide-react';
@@ -35,8 +35,7 @@ function formatPacketDateTime(dateStr?: string, timeStr?: string): string {
   return `${day}/${month}/${year} ${hour}:${min}:${sec}`;
 }
 
-/*
-function _formatCreatedAt(isoStr?: string): string {
+function formatCreatedAt(isoStr?: string): string {
   if (!isoStr) return '-';
   try {
     const d = new Date(isoStr);
@@ -46,7 +45,6 @@ function _formatCreatedAt(isoStr?: string): string {
   } catch { }
   return isoStr;
 }
-*/
 
 export const AlertsHubView: React.FC = () => {
   const navigate = useNavigate();
@@ -67,7 +65,7 @@ export const AlertsHubView: React.FC = () => {
 
   // NEW API: GET http://localhost:8082/vts/api/vehicle/alerts?limit=50
   const [alerts, setAlerts] = useState<VehicleAlertApiItem[]>([]);
-  const [_totalCount, setTotalCount] = useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   // const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
@@ -82,20 +80,19 @@ export const AlertsHubView: React.FC = () => {
       try {
         res = await fetch('http://localhost:8082/vts/api/vehicle/alerts?limit=50');
       } catch {
+        // Fallback to Vite proxy
         res = await fetch('/vts/api/vehicle/alerts?limit=50');
       }
 
       if (res && res.ok) {
-        const data = (await res.json()) as VehicleAlertsApiResponse;
-        if (data && Array.isArray(data.alerts)) {
-          setAlerts(data.alerts);
-          setTotalCount(data.count || data.alerts.length);
-          // setIsLiveConnected(true);
-          // setLastSyncTime(new Date().toLocaleTimeString());
-          return;
-        }
+        const json: VehicleAlertsApiResponse = await res.json();
+        setAlerts(json.alerts || []);
+        setTotalCount(json.count || (json.alerts ? json.alerts.length : 0));
+        // setIsLiveConnected(true);
+        // setLastSyncTime(new Date().toLocaleTimeString());
       }
-    } catch {
+    } catch (err) {
+      console.error('Failed to fetch vehicle alerts:', err);
       // setIsLiveConnected(false);
     } finally {
       setLoading(false);
@@ -103,6 +100,7 @@ export const AlertsHubView: React.FC = () => {
     }
   }, []);
 
+  // Poll alerts every 3000ms
   useEffect(() => {
     fetchAlerts();
     const interval = setInterval(() => {
@@ -111,9 +109,8 @@ export const AlertsHubView: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchAlerts]);
 
-  // Summary counts for quick chips - Commented out for future reference
-  /*
-  const _counts = useMemo(() => {
+  // Summary counts for quick chips
+  const counts = useMemo(() => {
     let emergency = 0;
     let overspeed = 0;
     let powerCut = 0;
@@ -135,7 +132,6 @@ export const AlertsHubView: React.FC = () => {
       lowBattery,
     };
   }, [alerts]);
-  */
 
   // Filtered alerts by search and type
   const filteredAlerts = useMemo(() => {

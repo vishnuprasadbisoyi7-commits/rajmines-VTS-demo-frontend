@@ -8,7 +8,6 @@ import type {
   Vehicle,
   VehicleTelemetryViewDto,
   LiveVehicleApiResponse,
-  LiveVehicleApiItem,
   VehicleAlertsApiResponse,
 } from '../types/vts.types';
 
@@ -84,73 +83,6 @@ export function dtoToVehicle(dto: VehicleTelemetryViewDto): Vehicle {
   };
 }
 
-export function apiLiveVehicleToVehicle(item: LiveVehicleApiItem): Vehicle {
-  const speed = Number(item.speed) || 0;
-  const isMoving = speed > 2;
-
-  let formattedTime = 'Just now';
-  if (item.updated_at) {
-    try {
-      const d = new Date(item.updated_at);
-      if (!isNaN(d.getTime())) {
-        formattedTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      }
-    } catch {}
-  } else if (item.packet_date && item.packet_time && item.packet_date.length === 8 && item.packet_time.length === 6) {
-    const hh = item.packet_time.slice(0, 2);
-    const mm = item.packet_time.slice(2, 4);
-    const ss = item.packet_time.slice(4, 6);
-    formattedTime = `${hh}:${mm}:${ss}`;
-  }
-
-  const mineralMap: Record<string, string> = {
-    RJ14AA7906: 'Bajri (River Sand)',
-    RJ14GL6794: 'Masonry Stone',
-    RJ14AA7905: 'Granite',
-    RJ14AA7903: 'Marble',
-    RJ14AA7902: 'Sandstone',
-    RJ14GL6791: 'Limestone',
-    RJ14GL6798: 'Bajri (River Sand)',
-    RJ14AA7909: 'Granite',
-    RJ27GD1041: 'Bajri',
-    RJ14GK0267: 'Masonry Stone',
-  };
-
-  return {
-    id: `VEH-${item.vehicle_no}`,
-    reg_no: item.vehicle_no,
-    imei: item.imei || '861819083751564',
-    vehicle_type: 'Heavy Mining Tipper',
-    driver_name: 'Registered Driver',
-    driver_phone: '+91 94140 XXXXX',
-    capacity_tonnes: 32.0,
-    mineral_type: mineralMap[item.vehicle_no] || 'Mining Mineral',
-    status: item.emergency === 1 ? 'SOS' : isMoving ? 'MOVING' : 'IDLE',
-    last_latitude: Number(item.latitude) || 26.5081,
-    last_longitude: Number(item.longitude) || 75.1885,
-    last_speed: speed,
-    last_heading: Number(item.heading) || 0,
-    last_altitude: Number(item.altitude) || 239.6,
-    last_satellites: Number(item.satellites) || 24,
-    last_ignition: item.ignition === 1 || speed > 0,
-    last_emergency: item.emergency === 1,
-    last_internal_batt: 4.1,
-    last_updated: formattedTime,
-    active_geofence: 'Active Corridor',
-    active_e_ravanna:
-      item.vehicle_no === 'RJ14AA7906'
-        ? 'ERAW-7906-2026'
-        : item.vehicle_no === 'RJ14GL6794'
-        ? 'ERAW-6794-2026'
-        : item.vehicle_no === 'RJ14AA7905'
-        ? 'ERAW-7905-2026'
-        : 'N/A',
-    input_voltage: 27.8,
-    gps_fix: item.satellites && item.satellites > 3 ? 1 : 0,
-    vendor: item.operator ? item.operator.toUpperCase() : 'AIRTEL',
-  };
-}
-
 export function dtoToTelemetryPoint(dto: VehicleTelemetryViewDto): TelemetryPoint {
   let ts = dto.createdAt;
   if (!ts && dto.packetDate && dto.packetTime) {
@@ -172,8 +104,8 @@ export const vtsApi = {
     return await fetchTelemetry<VehicleTelemetryViewDto>(`/latest?vehicleNo=${encodeURIComponent(vehicleNo)}`);
   },
 
-  // 2. Polyline Path History for vehicle from Go server
-  async getRouteHistory(vehicleNo: string = 'RJ14AA7906', limit: number = 500): Promise<VehicleTelemetryViewDto[]> {
+  // 2. Polyline Path History for vehicle
+  async getRouteHistory(vehicleNo: string = 'RJ14AA7906', limit: number = 200): Promise<VehicleTelemetryViewDto[]> {
     const data = await fetchTelemetry<VehicleTelemetryViewDto[]>(
       `/history?vehicleNo=${encodeURIComponent(vehicleNo)}&limit=${limit}`
     );
@@ -186,7 +118,7 @@ export const vtsApi = {
     return data || [];
   },
 
-  // 4. Live Vehicles API: GET http://localhost:8082/vts/api/vehicle/live
+  // 4. NEW API: GET http://localhost:8082/vts/api/vehicle/live
   async getLiveVehicles(): Promise<LiveVehicleApiResponse | null> {
     try {
       const res = await fetch('http://localhost:8082/vts/api/vehicle/live');
@@ -206,15 +138,10 @@ export const vtsApi = {
 
   async getVehicles(): Promise<Vehicle[]> {
     try {
-      // 1. Primary: Fetch ONLY live vehicles actively transmitting packets from Go server
-      const liveApiRes = await this.getLiveVehicles();
-      if (liveApiRes && Array.isArray(liveApiRes.data) && liveApiRes.data.length > 0) {
-        return liveApiRes.data.map(apiLiveVehicleToVehicle);
-      }
-
-      // 2. Secondary fallback: recent telemetry records
+      // Fetch latest telemetry packets across vehicles from the Spring Boot API
       const recentList = await this.getRecentAllTelemetry(100);
       if (recentList && recentList.length > 0) {
+        // Group by vehicleNo to extract latest state per vehicle
         const latestByVehicle = new Map<string, VehicleTelemetryViewDto>();
         for (const record of recentList) {
           if (!record.vehicleNo) continue;
@@ -234,25 +161,6 @@ export const vtsApi = {
     return getFallbackVehicles();
   },
 
-  // Used by Vehicle Replay to allow selecting from all vehicles
-  async getAllVehicles(): Promise<Vehicle[]> {
-    try {
-      const liveApiRes = await this.getLiveVehicles();
-      const liveList =
-        liveApiRes && Array.isArray(liveApiRes.data)
-          ? liveApiRes.data.map(apiLiveVehicleToVehicle)
-          : [];
-
-      const fallbackList = getFallbackVehicles();
-      const additional = fallbackList.filter(
-        (fb) => !liveList.some((lv) => lv.reg_no === fb.reg_no)
-      );
-      return [...liveList, ...additional];
-    } catch {
-      return getFallbackVehicles();
-    }
-  },
-
   async getVehicleDetail(regNo: string): Promise<Vehicle | null> {
     try {
       const latest = await this.getLatestTelemetry(regNo);
@@ -264,22 +172,13 @@ export const vtsApi = {
     return list.find((v) => v.reg_no === regNo) || null;
   },
 
-  async getVehicleTrail(regNo: string, limit: number = 500): Promise<TelemetryPoint[]> {
+  async getVehicleTrail(regNo: string, limit: number = 200): Promise<TelemetryPoint[]> {
     try {
       const history = await this.getRouteHistory(regNo, limit);
       if (history && history.length > 0) {
-        const points = history
-          .map(dtoToTelemetryPoint)
-          .filter((p) => p.lat !== 0 && p.lng !== 0);
-        if (points.length > 0) {
-          // Sort chronologically ascending
-          points.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-          return points;
-        }
+        return history.map(dtoToTelemetryPoint);
       }
-    } catch (e) {
-      console.warn(`Failed to fetch route history for ${regNo}:`, e);
-    }
+    } catch {}
     return getFallbackTrail(regNo);
   },
 
@@ -427,84 +326,6 @@ export const vtsApi = {
 
 function getFallbackVehicles(): Vehicle[] {
   return [
-    {
-      id: 'VEH-PROD-RAWANNA-01',
-      reg_no: 'RJ14GK0267',
-      imei: '861819083751564',
-      vehicle_type: 'Multi-Axle Tipper',
-      driver_name: 'RAMESH KUMAR',
-      driver_phone: '+91 98291 04821',
-      capacity_tonnes: 32.0,
-      mineral_type: 'Masonry Stone',
-      status: 'MOVING',
-      last_latitude: 26.830,
-      last_longitude: 75.820,
-      last_speed: 52.7,
-      last_heading: 75.0,
-      last_altitude: 242.0,
-      last_satellites: 18,
-      last_ignition: true,
-      last_emergency: false,
-      last_internal_batt: 4.1,
-      last_updated: '07/09/2026, 10:23:53',
-      active_geofence: 'Jaipur Mining Cluster',
-      active_e_ravanna: 'PMPT1040769947',
-      input_voltage: 28.6,
-      gps_fix: 1,
-      vendor: 'TNOWTN',
-    },
-    {
-      id: 'VEH-PROD-RAWANNA-02',
-      reg_no: 'RJ27GD1041',
-      imei: '861819083751561',
-      vehicle_type: 'Heavy Tipper',
-      driver_name: 'BABU LAL RAYAKA',
-      driver_phone: '+91 96872 62425',
-      capacity_tonnes: 30.0,
-      mineral_type: 'Bajri',
-      status: 'MOVING',
-      last_latitude: 25.010,
-      last_longitude: 74.618,
-      last_speed: 30.0,
-      last_heading: 180.0,
-      last_altitude: 215.0,
-      last_satellites: 17,
-      last_ignition: true,
-      last_emergency: false,
-      last_internal_batt: 4.1,
-      last_updated: '07/09/2026, 10:23:53',
-      active_geofence: 'Bhilwara-Chittorgarh Corridor',
-      active_e_ravanna: 'HAJS1040770053',
-      input_voltage: 28.2,
-      gps_fix: 1,
-      vendor: 'BULL',
-    },
-    {
-      id: 'VEH-PROD-RAWANNA-03',
-      reg_no: 'RJ47GC7088',
-      imei: '861819083751562',
-      vehicle_type: 'Dumper',
-      driver_name: 'Madan Lal',
-      driver_phone: '+91 94140 12345',
-      capacity_tonnes: 25.0,
-      mineral_type: 'Sandstone',
-      status: 'MOVING',
-      last_latitude: 25.875,
-      last_longitude: 72.801,
-      last_speed: 6.6,
-      last_heading: 120.0,
-      last_altitude: 180.0,
-      last_satellites: 14,
-      last_ignition: true,
-      last_emergency: false,
-      last_internal_batt: 4.1,
-      last_updated: '07/09/2026, 10:23:53',
-      active_geofence: 'Luni Mining Zone',
-      active_e_ravanna: 'N/A',
-      input_voltage: 27.5,
-      gps_fix: 1,
-      vendor: 'BULL',
-    },
     {
       id: 'VEH-PROD-01',
       reg_no: 'RJ19GH6551',
@@ -1181,87 +1002,14 @@ function getFallbackGISMeta(): GISMetaResponse {
   };
 }
 
-function getFallbackTrail(regNo?: string): TelemetryPoint[] {
-  const normalized = (regNo || '').toUpperCase().trim();
-
-  // 1. RJ27GD1041: Uncha to Chhoti Sadri authentic route
-  if (normalized === 'RJ27GD1041' || normalized.includes('27GD') || normalized.includes('1041')) {
-    const unchaRoute: [number, number][] = [
-      [25.325, 74.640],
-      [25.300, 74.638],
-      [25.265, 74.635],
-      [25.220, 74.630],
-      [25.170, 74.625],
-      [25.120, 74.622],
-      [25.075, 74.620],
-      [25.045, 74.615], // Weighbridge 07955
-      [25.010, 74.618],
-      [24.960, 74.625],
-      [24.910, 74.630],
-      [24.888, 74.633],
-      [24.840, 74.645],
-      [24.780, 74.660],
-      [24.720, 74.670],
-      [24.660, 74.678],
-      [24.580, 74.690],
-      [24.500, 74.698],
-      [24.440, 74.704],
-      [24.381, 74.706], // Destination Madhu, Chhoti Sadri
-    ];
-    const now = Date.now();
-    return unchaRoute.map((coords, i) => ({
-      lat: coords[0],
-      lng: coords[1],
-      speed: i === 7 ? 20 : 30 + (i % 8),
-      heading: 180 + (i % 10),
-      ignition: true,
-      timestamp: new Date(now - (unchaRoute.length - i) * 60000).toISOString(),
-    }));
-  }
-
-  // 2. RJ14GK0267: Jaipur corridor authentic route
-  if (normalized === 'RJ14GK0267' || normalized.includes('14GK')) {
-    const jaipurRoute: [number, number][] = [
-      [26.912, 75.787],
-      [26.890, 75.795],
-      [26.865, 75.805],
-      [26.830, 75.820],
-      [26.805, 75.835],
-      [26.780, 75.850],
-      [26.750, 75.870],
-    ];
-    const now = Date.now();
-    return jaipurRoute.map((coords, i) => ({
-      lat: coords[0],
-      lng: coords[1],
-      speed: 52.7,
-      heading: 155,
-      ignition: true,
-      timestamp: new Date(now - (jaipurRoute.length - i) * 60000).toISOString(),
-    }));
-  }
-
-  // 3. Match vehicle's individual base position
-  const fallbackList = getFallbackVehicles();
-  const match = fallbackList.find((v) => v.reg_no.toUpperCase() === normalized);
-  const baseLat = match ? match.last_latitude : 25.877;
-  const baseLng = match ? match.last_longitude : 72.803;
-  const baseHeading = match ? match.last_heading : 140;
-
+function getFallbackTrail(_regNo?: string): TelemetryPoint[] {
   const now = Date.now();
-  const count = 30;
-  return Array.from({ length: count }, (_, i) => {
-    const progress = (i - count / 2) * 0.003;
-    const latOffset = Math.sin((baseHeading * Math.PI) / 180) * progress;
-    const lngOffset = Math.cos((baseHeading * Math.PI) / 180) * progress;
-    return {
-      lat: Number((baseLat + latOffset).toFixed(6)),
-      lng: Number((baseLng + lngOffset).toFixed(6)),
-      speed: Math.max(10, (match?.last_speed || 35) + (i % 10) - 5),
-      heading: (baseHeading + (i % 6) * 2) % 360,
-      ignition: true,
-      timestamp: new Date(now - (count - i) * 60000).toISOString(),
-    };
-  });
+  return Array.from({ length: 25 }, (_, i) => ({
+    lat: 27.0425 - i * 0.008,
+    lng: 74.7214 + i * 0.006,
+    speed: 35 + (i % 15),
+    heading: 140 + (i % 20),
+    ignition: true,
+    timestamp: new Date(now - (25 - i) * 60000).toISOString(),
+  }));
 }
-
