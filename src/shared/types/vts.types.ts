@@ -251,7 +251,12 @@ export interface RawannaTransitDetails {
   pointA: RawannaTransitPoint;
   pointB: RawannaTransitPoint;
   pointC: RawannaTransitPoint;
-  route_coordinates: [number, number][];
+  route_coordinates: [number, number][]; // Full route corridor (for backward compatibility)
+  planned_route: [number, number][]; // Static authorized baseline corridor Point A -> B -> C
+  traveled_route: [number, number][]; // Actual GPS path traversed by the vehicle so far
+  deviated_route?: [number, number][]; // Deviated GPS points outside authorized buffer
+  is_deviated?: boolean; // Whether vehicle is currently deviated from planned corridor
+  deviation_distance_meters?: number; // Current distance from planned corridor
   generated_at: string;
   expire_at: string;
   status: string;

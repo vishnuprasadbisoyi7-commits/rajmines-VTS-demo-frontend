@@ -11,7 +11,7 @@ import { vtsApi } from '@/shared/services/vtsApi';
 import { useLiveTelemetry } from '@/shared/hooks/useLiveTelemetry';
 import { RajdharaaMap, type RajdharaaMapHandle } from '@/shared/components/RajdharaaMap';
 import { VehicleTelemetryDrawer } from '../components/VehicleTelemetryDrawer';
-// import { calculateRoadHeading } from '@/shared/data/rawannaTransitData';
+import { getRawannaTransitForVehicle } from '@/shared/data/rawannaTransitData';
 import {
   Search,
   FileText,
@@ -49,15 +49,19 @@ export const LiveTrackingView: React.FC = () => {
   // const [selectedTrail, setSelectedTrail] = useState<[number, number][]>([]);
   const [showTelemetryDrawer, setShowTelemetryDrawer] = useState<boolean>(false);
 
-  // UNREQUIRED SIMULATION STATES COMMENTED OUT:
-  // const [activeTransitDetails, setActiveTransitDetails] = useState<RawannaTransitDetails | null>(null);
-  // const [_simStepIndex, setSimStepIndex] = useState<number>(0);
-  // const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
-
   // Controls & Filters (Default to ALL so all active transmitting vehicles appear in list view)
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [showOnlyActiveERawanna, setShowOnlyActiveERawanna] = useState<boolean>(false);
+
+  // 2-Layer Route Corridor: Planned Baseline A -> B -> C + Real-Time Traveled Path
+  const activeTransitDetails = useMemo(() => {
+    if (!selectedVehicle) return null;
+    if (showOnlyActiveERawanna || (selectedVehicle.active_e_ravanna && selectedVehicle.active_e_ravanna !== 'N/A')) {
+      return getRawannaTransitForVehicle(selectedVehicle);
+    }
+    return null;
+  }, [selectedVehicle, showOnlyActiveERawanna]);
 
   // Map Feature Toggles (disabled to match clean production view, can be re-enabled anytime)
   const [showGeofences] = useState(false);
@@ -409,12 +413,33 @@ export const LiveTrackingView: React.FC = () => {
             trailPoints={[]}
             initialZoom={13}
             initialCenter={liveVehiclesList.length > 0 ? [liveVehiclesList[0].last_latitude, liveVehiclesList[0].last_longitude] : [26.9124, 75.7873]}
-            transitDetails={null}
+            transitDetails={activeTransitDetails}
             isTransitMode={false}
           />
 
-          {/* UNREQUIRED DUMMY TRANSIT OVERLAY CARD COMMENTED OUT:
-          Tracking an individual vehicle now opens in dedicated TrackVehicleView component */}
+          {/* Route Corridor Legend (Bottom-Left) when an e-Rawanna route corridor is active */}
+          {activeTransitDetails && (
+            <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 dark:bg-[#0c1e38]/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-lg text-xs space-y-1.5 select-none pointer-events-auto">
+              <div className="font-bold text-[10.5px] text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+                <span>{activeTransitDetails.vehicle_reg_no} Planned Route</span>
+                <span className="text-[10px] text-slate-400 font-normal">Buffer: 200m</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-1 border-t-2 border-dashed border-slate-500 block"></span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium text-[11px]">Planned Corridor (A &rarr; B &rarr; C)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-1.5 bg-emerald-600 rounded-full block"></span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium text-[11px]">Real-Time Traveled Path</span>
+              </div>
+              {activeTransitDetails.is_deviated && (
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-1.5 bg-red-600 rounded-full block"></span>
+                  <span className="text-red-600 dark:text-red-400 font-bold text-[11px]">Deviated Path (&gt; 200m off route)</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

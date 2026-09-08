@@ -105,7 +105,10 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
     const trailPolylineRef = useRef<L.Polyline | null>(null);
     const geocodeMarkerRef = useRef<L.Marker | null>(null);
     const prevSelectedRegNoRef = useRef<string | null>(null);
-    const transitRouteLayerRef = useRef<L.Polyline | null>(null);
+    const transitPlannedRouteLayerRef = useRef<L.Polyline | null>(null);
+    const transitBufferLayerRef = useRef<L.Polyline | null>(null);
+    const transitTraveledLayerRef = useRef<L.Polyline | null>(null);
+    const transitDeviatedLayerRef = useRef<L.Polyline | null>(null);
     const transitMarkersGroupRef = useRef<L.LayerGroup | null>(null);
     const lastFittedTransitVehicleRef = useRef<string | null>(null);
     const replayRouteLayerRef = useRef<L.Polyline | null>(null);
@@ -310,8 +313,10 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
         replayVehicleMarkerRef.current = null;
         replayMarkersGroupRef.current = null;
         replayRouteLayerRef.current = null;
-        replayTraveledLayerRef.current = null;
-        transitRouteLayerRef.current = null;
+        transitPlannedRouteLayerRef.current = null;
+        transitBufferLayerRef.current = null;
+        transitTraveledLayerRef.current = null;
+        transitDeviatedLayerRef.current = null;
         transitMarkersGroupRef.current = null;
         trailPolylineRef.current = null;
         borderLayerGroupRef.current = null;
@@ -711,54 +716,115 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       */
     }, [showTrail, trailPoints]);
 
-    // 8.5. Active e-Rawanna Transit Route & Point A / B / C Markers (matching Image 2 & 3)
+    // 8.5. 2-Layer Transit Corridor Architecture:
+    // Layer 1 (Bottom): Static Authorized Planned Corridor (A -> B -> C) with corridor boundary buffer
+    // Layer 2 (Top): Actual GPS Traveled Trail advancing in real-time above the planned line
+    // Layer 3 (Alert): Red highlighted off-corridor segment if vehicle deviates
     useEffect(() => {
       if (!mapInstanceRef.current) return;
       const map = mapInstanceRef.current;
 
-      if (!transitDetails || transitDetails.route_coordinates.length <= 1) {
-        if (transitRouteLayerRef.current) {
-          map.removeLayer(transitRouteLayerRef.current);
-          transitRouteLayerRef.current = null;
+      const clearAllTransitLayers = () => {
+        if (transitBufferLayerRef.current) {
+          map.removeLayer(transitBufferLayerRef.current);
+          transitBufferLayerRef.current = null;
+        }
+        if (transitPlannedRouteLayerRef.current) {
+          map.removeLayer(transitPlannedRouteLayerRef.current);
+          transitPlannedRouteLayerRef.current = null;
+        }
+        if (transitTraveledLayerRef.current) {
+          map.removeLayer(transitTraveledLayerRef.current);
+          transitTraveledLayerRef.current = null;
+        }
+        if (transitDeviatedLayerRef.current) {
+          map.removeLayer(transitDeviatedLayerRef.current);
+          transitDeviatedLayerRef.current = null;
         }
         if (transitMarkersGroupRef.current) {
           transitMarkersGroupRef.current.clearLayers();
         }
         lastFittedTransitVehicleRef.current = null;
+      };
+
+      if (!transitDetails || (!transitDetails.planned_route?.length && !transitDetails.route_coordinates?.length)) {
+        clearAllTransitLayers();
         return;
       }
 
+      const plannedCoords = transitDetails.planned_route?.length
+        ? transitDetails.planned_route
+        : transitDetails.route_coordinates;
+      const traveledCoords = transitDetails.traveled_route || [];
+      const deviatedCoords = transitDetails.deviated_route || [];
+      const isDeviated = Boolean(transitDetails.is_deviated);
+
       const isSameVehicle = lastFittedTransitVehicleRef.current === transitDetails.vehicle_reg_no;
 
-      // If already initialized for this vehicle, smoothly update polyline without moving map camera
-      if (isSameVehicle && transitRouteLayerRef.current) {
-        transitRouteLayerRef.current.setLatLngs(transitDetails.route_coordinates);
+      // If already initialized for this vehicle, smoothly update real-time traveled & deviation layers without moving the map camera
+      if (isSameVehicle && transitPlannedRouteLayerRef.current) {
+        if (transitTraveledLayerRef.current && traveledCoords.length > 0) {
+          transitTraveledLayerRef.current.setLatLngs(traveledCoords);
+        }
+        if (transitDeviatedLayerRef.current) {
+          if (isDeviated && deviatedCoords.length > 0) {
+            transitDeviatedLayerRef.current.setLatLngs(deviatedCoords);
+          } else {
+            transitDeviatedLayerRef.current.setLatLngs([]);
+          }
+        }
         return;
       }
 
       // Initial route setup for a newly opened vehicle:
-      if (transitRouteLayerRef.current) {
-        map.removeLayer(transitRouteLayerRef.current);
-        transitRouteLayerRef.current = null;
-      }
+      clearAllTransitLayers();
 
       if (!transitMarkersGroupRef.current || !map.hasLayer(transitMarkersGroupRef.current)) {
         transitMarkersGroupRef.current = L.layerGroup().addTo(map);
-      } else {
-        transitMarkersGroupRef.current.clearLayers();
       }
 
-      // Orange / Coral Highway Route connecting A -> B -> C (matching Image 3)
-      const routeLine = L.polyline(transitDetails.route_coordinates, {
-        color: '#ea580c',
-        weight: 5.5,
-        opacity: 0.88,
+      // 1. Base Layer 1: Semi-transparent Safety Corridor Buffer (18px width)
+      const bufferLine = L.polyline(plannedCoords, {
+        color: '#3b82f6',
+        weight: 18,
+        opacity: 0.12,
+        lineCap: 'round',
         lineJoin: 'round',
       }).addTo(map);
+      transitBufferLayerRef.current = bufferLine;
 
-      transitRouteLayerRef.current = routeLine;
+      // 2. Base Layer 2: Static Planned Highway Corridor A -> B -> C (Dashed Slate-Blue Line)
+      const plannedLine = L.polyline(plannedCoords, {
+        color: '#475569',
+        weight: 5.5,
+        opacity: 0.7,
+        dashArray: '8, 6',
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+      transitPlannedRouteLayerRef.current = plannedLine;
 
-      // Point A: Starting point / Lessee / Dealer
+      // 3. Top Layer: Real-Time Actual Traveled Path (Solid Vibrant Emerald Green directly on top of planned route)
+      const traveledLine = L.polyline(traveledCoords, {
+        color: '#16a34a',
+        weight: 5.5,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+      transitTraveledLayerRef.current = traveledLine;
+
+      // 4. Alert Layer: Deviated off-corridor path in Red if vehicle goes outside the authorized corridor
+      const deviatedLine = L.polyline(isDeviated && deviatedCoords.length > 0 ? deviatedCoords : [], {
+        color: '#dc2626',
+        weight: 6,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+      transitDeviatedLayerRef.current = deviatedLine;
+
+      // Point A: Starting point / Mining Lease (Blue circle badge with "A")
       const iconA = L.divIcon({
         className: 'transit-marker-a',
         html: `
@@ -780,7 +846,7 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       `);
       transitMarkersGroupRef.current.addLayer(markerA);
 
-      // Point B: Weighbridge (Green circle with white "B" matching Image 3)
+      // Point B: Weighbridge (Green circle badge with "B")
       const iconB = L.divIcon({
         className: 'transit-marker-b',
         html: `
@@ -802,7 +868,7 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       `);
       transitMarkersGroupRef.current.addLayer(markerB);
 
-      // Point C: Consignee (Red circle with white "C" matching Image 3)
+      // Point C: Consignee (Red circle badge with "C")
       const iconC = L.divIcon({
         className: 'transit-marker-c',
         html: `
@@ -824,8 +890,8 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       `);
       transitMarkersGroupRef.current.addLayer(markerC);
 
-      // Fit map bounds to show full route from A to B to C strictly ONCE on initial load
-      map.fitBounds(routeLine.getBounds(), { padding: [55, 55], maxZoom: 14 });
+      // Fit map bounds to show full planned corridor A -> B -> C strictly ONCE on initial load
+      map.fitBounds(plannedLine.getBounds(), { padding: [55, 55], maxZoom: 14 });
       lastFittedTransitVehicleRef.current = transitDetails.vehicle_reg_no;
     }, [transitDetails]);
 

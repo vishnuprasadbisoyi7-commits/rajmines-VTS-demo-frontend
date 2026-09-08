@@ -20,6 +20,7 @@ import {
   // RotateCcw,
   Navigation,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const TrackVehicleView: React.FC = () => {
@@ -280,10 +281,27 @@ export const TrackVehicleView: React.FC = () => {
                 {transitDetails.vehicle_reg_no}
               </span>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-              {transitDetails.status || 'Unconfirm'}
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+              transitDetails.is_deviated
+                ? 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-800/60 animate-pulse'
+                : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
+            }`}>
+              {transitDetails.status || 'In Transit'}
             </span>
           </div>
+
+          {/* Off-Corridor Deviation Warning Banner */}
+          {transitDetails.is_deviated && (
+            <div className="mt-3 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 flex items-start gap-2 text-xs text-red-700 dark:text-red-300 animate-pulse">
+              <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="font-bold block">Off-Corridor Deviation Detected!</span>
+                <span className="text-[11px] text-red-600 dark:text-red-400">
+                  Truck is {transitDetails.deviation_distance_meters || 0}m outside authorized Point A &rarr; B &rarr; C corridor.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* TP Number Row */}
           <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 mt-3 mb-2">
@@ -389,6 +407,31 @@ export const TrackVehicleView: React.FC = () => {
                 {Math.round(vehicle.last_speed)} km/h
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Route Corridor Legend (Bottom-Left) */}
+        <div className="absolute bottom-6 left-6 z-[1000] bg-white/95 dark:bg-[#0c1e38]/95 backdrop-blur-md px-3.5 py-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-lg text-xs space-y-2 select-none pointer-events-auto">
+          <div className="font-bold text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+            <span>Route Corridor Legend</span>
+            <span className="text-[10px] text-slate-400 font-normal">Buffer: 200m</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-5 h-1 border-t-2 border-dashed border-slate-500 block"></span>
+            <span className="text-slate-700 dark:text-slate-300 font-medium">Planned Corridor (A &rarr; B &rarr; C)</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-5 h-1.5 bg-emerald-600 rounded-full block"></span>
+            <span className="text-slate-700 dark:text-slate-300 font-medium">Real-Time Traveled Route</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-5 h-1.5 bg-red-600 rounded-full block"></span>
+            <span className="text-slate-700 dark:text-slate-300 font-medium">Deviated Path (&gt; 200m off route)</span>
+          </div>
+          <div className="flex items-center gap-3 pt-1 text-[10.5px] text-slate-500 dark:text-slate-400">
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-600 text-[8px] text-white flex items-center justify-center font-bold">A</span> Mine</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600 text-[8px] text-white flex items-center justify-center font-bold">B</span> WB</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-600 text-[8px] text-white flex items-center justify-center font-bold">C</span> Consignee</span>
           </div>
         </div>
       </div>

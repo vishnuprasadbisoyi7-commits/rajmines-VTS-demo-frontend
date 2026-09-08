@@ -12,7 +12,6 @@ import {
   Repeat,
   Crosshair,
   Calendar,
-  Layers,
   ChevronDown,
   RefreshCw,
   Map as MapIcon,
