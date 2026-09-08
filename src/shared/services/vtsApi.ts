@@ -177,16 +177,24 @@ export const vtsApi = {
 
   // 2. Polyline Path History for vehicle from Go server
   async getRouteHistory(vehicleNo: string = 'RJ14AA7906', limit: number = 500): Promise<VehicleTelemetryViewDto[]> {
-    const data = await fetchTelemetry<VehicleTelemetryViewDto[]>(
+    const data = await fetchTelemetry<any>(
       `/history?vehicleNo=${encodeURIComponent(vehicleNo)}&limit=${limit}`
     );
-    return data || [];
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.value)) return data.value;
+    if (Array.isArray(data.data)) return data.data;
+    return [];
   },
 
   // 3. View Recent Telemetry Records Across All Vehicles (Old API - preserved)
   async getRecentAllTelemetry(limit: number = 100): Promise<VehicleTelemetryViewDto[]> {
-    const data = await fetchTelemetry<VehicleTelemetryViewDto[]>(`/recent-all?limit=${limit}`);
-    return data || [];
+    const data = await fetchTelemetry<any>(`/recent-all?limit=${limit}`);
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.value)) return data.value;
+    if (Array.isArray(data.data)) return data.data;
+    return [];
   },
 
   // Filter helper: Only keep vehicles actively transmitting packets in the current session
@@ -687,6 +695,8 @@ function getFallbackTripReports(filters?: TripReportFilterParams): TripReportRec
 
 
 function getFallbackVehicles(): Vehicle[] {
+  // DUMMY DATA COMMENTED OUT: Strict backend telemetry mode enabled
+  /*
   return [
     {
       id: 'VEH-PROD-RAWANNA-01',
@@ -1105,9 +1115,13 @@ function getFallbackVehicles(): Vehicle[] {
       vendor: 'iTriangle',
     },
   ];
+  */
+  return [];
 }
 
 function getFallbackGeofences(): GeofenceZone[] {
+  // DUMMY DATA COMMENTED OUT: Strict backend data mode
+  /*
   return [
     {
       id: 'GF-RAJ-001',
@@ -1144,9 +1158,13 @@ function getFallbackGeofences(): GeofenceZone[] {
       ],
     },
   ];
+  */
+  return [];
 }
 
 function getFallbackERavanna(): ERavannaPass[] {
+  // DUMMY DATA COMMENTED OUT: Strict backend data mode
+  /*
   return [
     {
       pass_no: 'ERAV-2026-MKR-0081',
@@ -1212,9 +1230,13 @@ function getFallbackERavanna(): ERavannaPass[] {
       deviation: 'No Deviation',
     },
   ];
+  */
+  return [];
 }
 
 function getFallbackAlerts(): AlertRecord[] {
+  // DUMMY DATA COMMENTED OUT: Strict backend data mode
+  /*
   return [
     {
       id: 'ALT-1001',
@@ -1357,6 +1379,8 @@ function getFallbackAlerts(): AlertRecord[] {
       is_resolved: false,
     },
   ];
+  */
+  return [];
 }
 
 function getFallbackGISMeta(): GISMetaResponse {
@@ -1442,7 +1466,9 @@ function getFallbackGISMeta(): GISMetaResponse {
   };
 }
 
-function getFallbackTrail(regNo?: string): TelemetryPoint[] {
+function getFallbackTrail(_regNo?: string): TelemetryPoint[] {
+  // DUMMY DATA COMMENTED OUT: Strict backend route history mode enabled
+  /*
   const normalized = (regNo || '').toUpperCase().trim();
 
   // 1. RJ27GD1041: Uncha to Chhoti Sadri authentic route
@@ -1455,7 +1481,7 @@ function getFallbackTrail(regNo?: string): TelemetryPoint[] {
       [25.170, 74.625],
       [25.120, 74.622],
       [25.075, 74.620],
-      [25.045, 74.615], // Weighbridge 07955
+      [25.045, 74.615],
       [25.010, 74.618],
       [24.960, 74.625],
       [24.910, 74.630],
@@ -1467,7 +1493,7 @@ function getFallbackTrail(regNo?: string): TelemetryPoint[] {
       [24.580, 74.690],
       [24.500, 74.698],
       [24.440, 74.704],
-      [24.381, 74.706], // Destination Madhu, Chhoti Sadri
+      [24.381, 74.706],
     ];
     const now = Date.now();
     return unchaRoute.map((coords, i) => ({
@@ -1524,5 +1550,7 @@ function getFallbackTrail(regNo?: string): TelemetryPoint[] {
       timestamp: new Date(now - (count - i) * 60000).toISOString(),
     };
   });
+  */
+  return [];
 }
 

@@ -300,6 +300,19 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       return () => {
         map.remove();
         mapInstanceRef.current = null;
+        replayVehicleMarkerRef.current = null;
+        replayMarkersGroupRef.current = null;
+        replayRouteLayerRef.current = null;
+        replayTraveledLayerRef.current = null;
+        transitRouteLayerRef.current = null;
+        transitMarkersGroupRef.current = null;
+        trailPolylineRef.current = null;
+        borderLayerGroupRef.current = null;
+        divisionLabelsRef.current = null;
+        geofenceLayersRef.current = null;
+        checkpostLayersRef.current = null;
+        geocodeMarkerRef.current = null;
+        vehicleMarkersRef.current.clear();
       };
     }, [_enableClickGeocode, _onGeocodeResult]);
 
@@ -621,6 +634,9 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
         let marker: L.Marker;
         if (currentMarkers.has(vehicle.reg_no)) {
           marker = currentMarkers.get(vehicle.reg_no)!;
+          if (!map.hasLayer(marker)) {
+            marker.addTo(map);
+          }
           marker.setLatLng(position);
           marker.setIcon(customIcon);
           marker.setPopupContent(popupHtml);
@@ -698,10 +714,10 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
         transitRouteLayerRef.current = null;
       }
 
-      if (transitMarkersGroupRef.current) {
-        transitMarkersGroupRef.current.clearLayers();
-      } else {
+      if (!transitMarkersGroupRef.current || !map.hasLayer(transitMarkersGroupRef.current)) {
         transitMarkersGroupRef.current = L.layerGroup().addTo(map);
+      } else {
+        transitMarkersGroupRef.current.clearLayers();
       }
 
       if (transitDetails && transitDetails.route_coordinates.length > 1) {
@@ -800,10 +816,10 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
         replayTraveledLayerRef.current = null;
       }
 
-      if (replayMarkersGroupRef.current) {
-        replayMarkersGroupRef.current.clearLayers();
-      } else {
+      if (!replayMarkersGroupRef.current || !map.hasLayer(replayMarkersGroupRef.current)) {
         replayMarkersGroupRef.current = L.layerGroup().addTo(map);
+      } else {
+        replayMarkersGroupRef.current.clearLayers();
       }
 
       if (isReplayMode && replayRoutePoints && replayRoutePoints.length > 1) {
@@ -959,14 +975,19 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
         iconAnchor: [22, 35],
       });
 
-      if (replayVehicleMarkerRef.current) {
+      if (!replayVehicleMarkerRef.current) {
+        replayVehicleMarkerRef.current = L.marker(currentCoords, {
+          icon: replayTruckIcon,
+          zIndexOffset: 10000,
+        }).addTo(map);
+      } else {
+        if (!map.hasLayer(replayVehicleMarkerRef.current)) {
+          replayVehicleMarkerRef.current.addTo(map);
+        }
         replayVehicleMarkerRef.current.setLatLng(currentCoords);
         replayVehicleMarkerRef.current.setIcon(replayTruckIcon);
-      } else {
-        const marker = L.marker(currentCoords, { icon: replayTruckIcon }).addTo(map);
-        replayVehicleMarkerRef.current = marker;
+        replayVehicleMarkerRef.current.setZIndexOffset(10000);
       }
-      replayVehicleMarkerRef.current.setZIndexOffset(9999);
     }, [isReplayMode, replayTraveledPoints, replayRoutePoints, selectedVehicle]);
 
     // 8.8. Camera Follow Vehicle (optional toggle for video tracking experience)

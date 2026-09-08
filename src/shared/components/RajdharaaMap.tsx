@@ -32,6 +32,7 @@ export interface RajdharaaMapHandle {
     zoom?: number,
     labelInfo?: { name: string; district?: string; type?: string }
   ) => void;
+  panToLocation: (lat: number, lng: number) => void;
 }
 
 interface RajdharaaMapProps {
@@ -106,6 +107,7 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
     const prevSelectedRegNoRef = useRef<string | null>(null);
     const transitRouteLayerRef = useRef<L.Polyline | null>(null);
     const transitMarkersGroupRef = useRef<L.LayerGroup | null>(null);
+    const lastFittedTransitVehicleRef = useRef<string | null>(null);
     const replayRouteLayerRef = useRef<L.Polyline | null>(null);
     const replayTraveledLayerRef = useRef<L.Polyline | null>(null);
     const replayMarkersGroupRef = useRef<L.LayerGroup | null>(null);
@@ -186,6 +188,11 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       () => ({
         resetRajasthanView: handleResetRajasthanView,
         flyToLocation: handleFlyToLocation,
+        panToLocation: (lat: number, lng: number) => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.panTo([lat, lng], { animate: true, duration: 0.5 });
+          }
+        },
       }),
       [handleResetRajasthanView, handleFlyToLocation]
     );
@@ -709,6 +716,27 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       if (!mapInstanceRef.current) return;
       const map = mapInstanceRef.current;
 
+      if (!transitDetails || transitDetails.route_coordinates.length <= 1) {
+        if (transitRouteLayerRef.current) {
+          map.removeLayer(transitRouteLayerRef.current);
+          transitRouteLayerRef.current = null;
+        }
+        if (transitMarkersGroupRef.current) {
+          transitMarkersGroupRef.current.clearLayers();
+        }
+        lastFittedTransitVehicleRef.current = null;
+        return;
+      }
+
+      const isSameVehicle = lastFittedTransitVehicleRef.current === transitDetails.vehicle_reg_no;
+
+      // If already initialized for this vehicle, smoothly update polyline without moving map camera
+      if (isSameVehicle && transitRouteLayerRef.current) {
+        transitRouteLayerRef.current.setLatLngs(transitDetails.route_coordinates);
+        return;
+      }
+
+      // Initial route setup for a newly opened vehicle:
       if (transitRouteLayerRef.current) {
         map.removeLayer(transitRouteLayerRef.current);
         transitRouteLayerRef.current = null;
@@ -720,86 +748,85 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
         transitMarkersGroupRef.current.clearLayers();
       }
 
-      if (transitDetails && transitDetails.route_coordinates.length > 1) {
-        // Orange / Coral Highway Route connecting A -> B -> C (matching Image 3)
-        const routeLine = L.polyline(transitDetails.route_coordinates, {
-          color: '#ea580c',
-          weight: 5.5,
-          opacity: 0.88,
-          lineJoin: 'round',
-        }).addTo(map);
+      // Orange / Coral Highway Route connecting A -> B -> C (matching Image 3)
+      const routeLine = L.polyline(transitDetails.route_coordinates, {
+        color: '#ea580c',
+        weight: 5.5,
+        opacity: 0.88,
+        lineJoin: 'round',
+      }).addTo(map);
 
-        transitRouteLayerRef.current = routeLine;
+      transitRouteLayerRef.current = routeLine;
 
-        // Point A: Starting point / Lessee / Dealer
-        const iconA = L.divIcon({
-          className: 'transit-marker-a',
-          html: `
-            <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-              <div style="width: 24px; height: 24px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">A</div>
-              <div style="background: rgba(15,23,42,0.88); color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-top: 2px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">${transitDetails.pointA.name}</div>
-            </div>
-          `,
-          iconSize: [60, 42],
-          iconAnchor: [30, 12],
-        });
-        const markerA = L.marker(transitDetails.pointA.coords, { icon: iconA });
-        markerA.bindPopup(`
-          <div style="padding: 8px 10px; font-size: 12px; font-family: sans-serif;">
-            <div style="color: #2563eb; font-weight: bold; font-size: 11px;">POINT A (STARTING POINT)</div>
-            <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${transitDetails.pointA.name}</div>
-            <div style="color: #64748b; font-size: 11px;">${transitDetails.pointA.subtext || 'Lessee / Dealer Mine'}</div>
+      // Point A: Starting point / Lessee / Dealer
+      const iconA = L.divIcon({
+        className: 'transit-marker-a',
+        html: `
+          <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">A</div>
+            <div style="background: rgba(15,23,42,0.88); color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-top: 2px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">${transitDetails.pointA.name}</div>
           </div>
-        `);
-        transitMarkersGroupRef.current.addLayer(markerA);
+        `,
+        iconSize: [60, 42],
+        iconAnchor: [30, 12],
+      });
+      const markerA = L.marker(transitDetails.pointA.coords, { icon: iconA });
+      markerA.bindPopup(`
+        <div style="padding: 8px 10px; font-size: 12px; font-family: sans-serif;">
+          <div style="color: #2563eb; font-weight: bold; font-size: 11px;">POINT A (STARTING POINT)</div>
+          <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${transitDetails.pointA.name}</div>
+          <div style="color: #64748b; font-size: 11px;">${transitDetails.pointA.subtext || 'Lessee / Dealer Mine'}</div>
+        </div>
+      `);
+      transitMarkersGroupRef.current.addLayer(markerA);
 
-        // Point B: Weighbridge (Green circle with white "B" matching Image 3)
-        const iconB = L.divIcon({
-          className: 'transit-marker-b',
-          html: `
-            <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-              <div style="width: 26px; height: 26px; border-radius: 50%; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">B</div>
-              <div style="background: rgba(15,23,42,0.88); color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-top: 2px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">Weighbridge</div>
-            </div>
-          `,
-          iconSize: [60, 42],
-          iconAnchor: [30, 13],
-        });
-        const markerB = L.marker(transitDetails.pointB.coords, { icon: iconB });
-        markerB.bindPopup(`
-          <div style="padding: 8px 10px; font-size: 12px; font-family: sans-serif;">
-            <div style="color: #16a34a; font-weight: bold; font-size: 11px;">POINT B (WEIGHBRIDGE)</div>
-            <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${transitDetails.pointB.name}</div>
-            <div style="color: #64748b; font-size: 11px;">Code: ${transitDetails.weighbridge_code} • Verified Gross Weight</div>
+      // Point B: Weighbridge (Green circle with white "B" matching Image 3)
+      const iconB = L.divIcon({
+        className: 'transit-marker-b',
+        html: `
+          <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+            <div style="width: 26px; height: 26px; border-radius: 50%; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">B</div>
+            <div style="background: rgba(15,23,42,0.88); color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-top: 2px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">Weighbridge</div>
           </div>
-        `);
-        transitMarkersGroupRef.current.addLayer(markerB);
+        `,
+        iconSize: [60, 42],
+        iconAnchor: [30, 13],
+      });
+      const markerB = L.marker(transitDetails.pointB.coords, { icon: iconB });
+      markerB.bindPopup(`
+        <div style="padding: 8px 10px; font-size: 12px; font-family: sans-serif;">
+          <div style="color: #16a34a; font-weight: bold; font-size: 11px;">POINT B (WEIGHBRIDGE)</div>
+          <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${transitDetails.pointB.name}</div>
+          <div style="color: #64748b; font-size: 11px;">Code: ${transitDetails.weighbridge_code} • Verified Gross Weight</div>
+        </div>
+      `);
+      transitMarkersGroupRef.current.addLayer(markerB);
 
-        // Point C: Consignee (Red circle with white "C" matching Image 3)
-        const iconC = L.divIcon({
-          className: 'transit-marker-c',
-          html: `
-            <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-              <div style="width: 26px; height: 26px; border-radius: 50%; background: #dc2626; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">C</div>
-              <div style="background: rgba(15,23,42,0.88); color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-top: 2px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">${transitDetails.pointC.name}</div>
-            </div>
-          `,
-          iconSize: [60, 42],
-          iconAnchor: [30, 13],
-        });
-        const markerC = L.marker(transitDetails.pointC.coords, { icon: iconC });
-        markerC.bindPopup(`
-          <div style="padding: 8px 10px; font-size: 12px; font-family: sans-serif;">
-            <div style="color: #dc2626; font-weight: bold; font-size: 11px;">POINT C (CONSIGNEE)</div>
-            <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${transitDetails.pointC.name}</div>
-            <div style="color: #64748b; font-size: 11px;">${transitDetails.pointC.subtext || 'Destination Consignee'}</div>
+      // Point C: Consignee (Red circle with white "C" matching Image 3)
+      const iconC = L.divIcon({
+        className: 'transit-marker-c',
+        html: `
+          <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+            <div style="width: 26px; height: 26px; border-radius: 50%; background: #dc2626; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">C</div>
+            <div style="background: rgba(15,23,42,0.88); color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-top: 2px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">${transitDetails.pointC.name}</div>
           </div>
-        `);
-        transitMarkersGroupRef.current.addLayer(markerC);
+        `,
+        iconSize: [60, 42],
+        iconAnchor: [30, 13],
+      });
+      const markerC = L.marker(transitDetails.pointC.coords, { icon: iconC });
+      markerC.bindPopup(`
+        <div style="padding: 8px 10px; font-size: 12px; font-family: sans-serif;">
+          <div style="color: #dc2626; font-weight: bold; font-size: 11px;">POINT C (CONSIGNEE)</div>
+          <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${transitDetails.pointC.name}</div>
+          <div style="color: #64748b; font-size: 11px;">${transitDetails.pointC.subtext || 'Destination Consignee'}</div>
+        </div>
+      `);
+      transitMarkersGroupRef.current.addLayer(markerC);
 
-        // Fit map bounds to show full route from A to B to C
-        map.fitBounds(routeLine.getBounds(), { padding: [55, 55], maxZoom: 14 });
-      }
+      // Fit map bounds to show full route from A to B to C strictly ONCE on initial load
+      map.fitBounds(routeLine.getBounds(), { padding: [55, 55], maxZoom: 14 });
+      lastFittedTransitVehicleRef.current = transitDetails.vehicle_reg_no;
     }, [transitDetails]);
 
     // 8.6. Vehicle Replay Full Route, Dynamic Traveled Layer & Start / End Markers
@@ -990,13 +1017,16 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
       }
     }, [isReplayMode, replayTraveledPoints, replayRoutePoints, selectedVehicle]);
 
-    // 8.8. Camera Follow Vehicle (optional toggle for video tracking experience)
+    // 8.8. Camera Follow Vehicle (smooth real-time tracking for live vehicle and replay mode)
     useEffect(() => {
-      if (followVehicleCamera && isReplayMode && mapInstanceRef.current && replayTraveledPoints && replayTraveledPoints.length > 0) {
+      if (!followVehicleCamera || !mapInstanceRef.current) return;
+      if (isReplayMode && replayTraveledPoints && replayTraveledPoints.length > 0) {
         const lastPt = replayTraveledPoints[replayTraveledPoints.length - 1];
         mapInstanceRef.current.panTo(lastPt, { animate: true, duration: 0.25 });
+      } else if (!isReplayMode && selectedVehicle && selectedVehicle.last_latitude && selectedVehicle.last_longitude) {
+        mapInstanceRef.current.panTo([selectedVehicle.last_latitude, selectedVehicle.last_longitude], { animate: true, duration: 0.5 });
       }
-    }, [followVehicleCamera, isReplayMode, replayTraveledPoints]);
+    }, [followVehicleCamera, isReplayMode, replayTraveledPoints, selectedVehicle]);
 
     // 9. Center on Selected Vehicle (ONLY when user selects a different vehicle, keeping map static while the vehicle moves)
     useEffect(() => {

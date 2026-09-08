@@ -385,13 +385,13 @@ export const RoutePlaybackView: React.FC = () => {
             </div>
 
             <div className="relative">
-              <button
+              {/* <button
                 onClick={() => setShowLayerMenu((prev) => !prev)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-2xs text-xs font-medium cursor-pointer"
               >
                 <Layers className="w-3.5 h-3.5" />
                 <span>Base Map</span>
-              </button>
+              </button> */}
 
               {showLayerMenu && (
                 <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-[#0c1e38] border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-2 space-y-1 text-xs">
@@ -402,11 +402,10 @@ export const RoutePlaybackView: React.FC = () => {
                         setActiveLayerId(l.id);
                         setShowLayerMenu(false);
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
-                        activeLayerId === l.id
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg transition cursor-pointer ${activeLayerId === l.id
                           ? 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-900 dark:text-cyan-300 font-semibold'
                           : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
-                      }`}
+                        }`}
                     >
                       {l.name}
                     </button>
@@ -425,7 +424,7 @@ export const RoutePlaybackView: React.FC = () => {
               gisLayers={gisLayers}
               activeLayerId={activeLayerId}
               selectedVehicle={playbackVehicle}
-              onSelectVehicle={() => {}}
+              onSelectVehicle={() => { }}
               showTrail={false}
               replayRoutePoints={polylineCoords}
               replayTraveledPoints={traveledCoords}
@@ -587,11 +586,10 @@ export const RoutePlaybackView: React.FC = () => {
                 {/* Loop Toggle */}
                 <button
                   onClick={() => setIsLooping((prev) => !prev)}
-                  className={`p-2.5 rounded-xl border transition cursor-pointer ${
-                    isLooping
+                  className={`p-2.5 rounded-xl border transition cursor-pointer ${isLooping
                       ? 'bg-cyan-50 dark:bg-cyan-950/60 border-cyan-500 text-cyan-700 dark:text-cyan-300'
                       : 'border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
+                    }`}
                   title={isLooping ? 'Auto-loop is enabled' : 'Click to enable auto-loop'}
                 >
                   <Repeat className="w-4 h-4" />
@@ -600,11 +598,10 @@ export const RoutePlaybackView: React.FC = () => {
                 {/* Camera Follow Toggle */}
                 <button
                   onClick={() => setFollowCamera((prev) => !prev)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer ${
-                    followCamera
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer ${followCamera
                       ? 'bg-cyan-50 dark:bg-cyan-950/60 border-cyan-500 text-cyan-700 dark:text-cyan-300'
                       : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
+                    }`}
                   title="Follow vehicle with camera"
                 >
                   <Crosshair className="w-3.5 h-3.5" />
@@ -620,11 +617,10 @@ export const RoutePlaybackView: React.FC = () => {
                     <button
                       key={spd}
                       onClick={() => setPlaybackSpeed(spd)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                        playbackSpeed === spd
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${playbackSpeed === spd
                           ? 'bg-white dark:bg-[#0c1e38] text-cyan-800 dark:text-cyan-300 shadow-2xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
+                        }`}
                     >
                       {spd}x
                     </button>

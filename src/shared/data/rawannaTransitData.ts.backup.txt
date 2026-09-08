@@ -1,4 +1,4 @@
-import type { RawannaTransitDetails, Vehicle } from '../types/vts.types';
+import type { RawannaTransitDetails, Vehicle, TelemetryPoint } from '../types/vts.types';
 
 // Pre-defined authentic transit route from Uncha 2 (Point A) to Weighbridge 07955 (Point B) to Chhoti Sadri (Point C)
 // matching the user's reference screenshots (Image 2 & Image 3)
@@ -36,7 +36,62 @@ const JAIPUR_ROUTE: [number, number][] = [
   [26.750, 75.870], // Point C: Consignee Ramavatar
 ];
 
-export function getRawannaTransitForVehicle(vehicle: Vehicle): RawannaTransitDetails {
+export function getRawannaTransitForVehicle(
+  vehicle: Vehicle,
+  historyPoints?: TelemetryPoint[]
+): RawannaTransitDetails {
+  // If genuine GPS packet history from backend exists with >= 3 points, use real simulation packets!
+  if (historyPoints && historyPoints.length >= 3) {
+    const routeCoords: [number, number][] = historyPoints.map((p) => [p.lat, p.lng]);
+    const startPt = routeCoords[0];
+    const midIdx = Math.floor(routeCoords.length / 2);
+    const midPt = routeCoords[midIdx];
+    const endPt = routeCoords[routeCoords.length - 1];
+
+    const passNo =
+      vehicle.active_e_ravanna && vehicle.active_e_ravanna !== 'N/A'
+        ? vehicle.active_e_ravanna
+        : `ERAW-${vehicle.reg_no.slice(-4)}-2026`;
+
+    return {
+      pass_no: passNo,
+      vehicle_reg_no: vehicle.reg_no,
+      driver_name: vehicle.driver_name || 'BABU LAL RAYAKA',
+      driver_phone: vehicle.driver_phone || '9687262425',
+      mineral_name: vehicle.mineral_type || 'Bajri',
+      tonnage: `${vehicle.capacity_tonnes || 16.0} MT`,
+      weighbridge_code: `07${vehicle.reg_no.slice(-3)}`,
+      pointA: {
+        label: 'A',
+        name: `${vehicle.mineral_type || 'Rajasthan'} Lease / Mine`,
+        subtext: 'Dealer / Loading Point A',
+        coords: startPt,
+        type: 'ORIGIN',
+      },
+      pointB: {
+        label: 'B',
+        name: `Weighbridge 07${vehicle.reg_no.slice(-3)}`,
+        subtext: 'Highway Transit Verification',
+        coords: midPt,
+        type: 'WEIGHBRIDGE',
+      },
+      pointC: {
+        label: 'C',
+        name: `${vehicle.mineral_type || 'State'} Consignee Hub`,
+        subtext: 'Final Destination Consignee',
+        coords: endPt,
+        type: 'CONSIGNEE',
+      },
+      route_coordinates: routeCoords,
+      generated_at: '06/09/2026, 14:53:27',
+      expire_at: '07/09/2026, 14:53:27',
+      status: 'In Transit',
+      lessee_name: `${vehicle.mineral_type || 'Rajasthan'} Mining Lease`,
+      consignee_name: `${vehicle.mineral_type || 'State'} Consignee Hub`,
+      consignee_address: 'Rajasthan State Mining Corridor',
+    };
+  }
+
   const regNo = vehicle.reg_no.toUpperCase().trim();
 
   // Match Image 2 & 3: RJ27GD1041

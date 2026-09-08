@@ -4,7 +4,7 @@ import type { Vehicle, RawannaTransitDetails, TelemetryPoint, GISLayerConfig } f
 import { vtsApi } from '@/shared/services/vtsApi';
 import {
   getRawannaTransitForVehicle,
-  // calculateRoadHeading,
+  calculateRoadHeading,
 } from '@/shared/data/rawannaTransitData';
 import { RajdharaaMap, type RajdharaaMapHandle } from '@/shared/components/RajdharaaMap';
 import {
@@ -15,9 +15,9 @@ import {
   Scale,
   MapPin,
   Calendar,
-  // Play,
-  // Pause,
-  // RotateCcw,
+  Play,
+  Pause,
+  RotateCcw,
   Navigation,
   Loader2,
 } from 'lucide-react';
@@ -31,9 +31,9 @@ export const TrackVehicleView: React.FC = () => {
   const [transitDetails, setTransitDetails] = useState<RawannaTransitDetails | null>(null);
   const [gisLayers, setGisLayers] = useState<GISLayerConfig[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  // UNREQUIRED SIMULATION STATES COMMENTED OUT:
-  // Map camera is static by default (toggleable via "Free Camera / Follow Vehicle" button)
-  const [followCamera, setFollowCamera] = useState<boolean>(false);
+  const [_stepIndex, setStepIndex] = useState<number>(0);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [followCamera, setFollowCamera] = useState<boolean>(true);
 
   // 1. Initial Load: Fetch vehicle metadata, GPS history, and GIS layers
   useEffect(() => {
@@ -83,11 +83,31 @@ export const TrackVehicleView: React.FC = () => {
             vendor: 'iTriangle',
           };
 
-        // Construct transit details (Point A -> Point B -> Point C) strictly from genuine backend telemetry
+        // Construct transit details (Point A -> Point B -> Point C)
         const transit = getRawannaTransitForVehicle(targetVehicle, historyPoints);
 
-        setVehicle(targetVehicle);
+        const startCoord = transit.route_coordinates[0] || [targetVehicle.last_latitude, targetVehicle.last_longitude];
+        const nextCoord = transit.route_coordinates[1] || startCoord;
+        const initialHeading = calculateRoadHeading(
+          startCoord[0],
+          startCoord[1],
+          nextCoord[0],
+          nextCoord[1]
+        );
+
+        const initializedVehicle: Vehicle = {
+          ...targetVehicle,
+          last_latitude: startCoord[0],
+          last_longitude: startCoord[1],
+          last_heading: initialHeading || targetVehicle.last_heading || 0,
+          last_speed: 30.0,
+          status: 'MOVING',
+          last_updated: new Date().toLocaleTimeString('en-GB'),
+        };
+
+        setVehicle(initializedVehicle);
         setTransitDetails(transit);
+        setStepIndex(0);
       } catch (err) {
         console.error('Failed to load tracking data for vehicle:', err);
       } finally {
@@ -102,9 +122,7 @@ export const TrackVehicleView: React.FC = () => {
     };
   }, [regNo]);
 
-  // UNREQUIRED SIMULATION LOOP COMMENTED OUT:
-  // Vehicle movement strictly reflects live telemetry from backend
-  /*
+  // 2. Continuous Point A -> Point B -> Point C Transit Simulation Loop
   useEffect(() => {
     if (!transitDetails || isPaused || !transitDetails.route_coordinates.length) return;
 
@@ -151,42 +169,6 @@ export const TrackVehicleView: React.FC = () => {
 
     return () => clearInterval(timer);
   }, [transitDetails, isPaused, followCamera]);
-  */
-
-  // 2. Real-Time Live Telemetry Polling (every 2.5s) from Backend Go Server
-  useEffect(() => {
-    if (!regNo) return;
-    let isMounted = true;
-
-    const pollLivePosition = async () => {
-      try {
-        const [updatedVehicle, trail] = await Promise.all([
-          vtsApi.getVehicleDetail(regNo),
-          vtsApi.getVehicleTrail(regNo, 300).catch(() => [] as TelemetryPoint[]),
-        ]);
-
-        if (!isMounted) return;
-
-        if (updatedVehicle) {
-          setVehicle(updatedVehicle);
-          setTransitDetails(getRawannaTransitForVehicle(updatedVehicle, trail));
-
-          // Auto pan map camera to follow vehicle if enabled
-          if (followCamera && mapRef.current && updatedVehicle.last_latitude && updatedVehicle.last_longitude) {
-            mapRef.current.panToLocation(updatedVehicle.last_latitude, updatedVehicle.last_longitude);
-          }
-        }
-      } catch (err) {
-        console.warn('Track vehicle live poll error:', err);
-      }
-    };
-
-    const interval = setInterval(pollLivePosition, 2500);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [regNo, followCamera]);
 
   if (isLoading || !vehicle || !transitDetails) {
     return (
@@ -265,7 +247,7 @@ export const TrackVehicleView: React.FC = () => {
           showDivisionLabels={false}
           transitDetails={transitDetails}
           isTransitMode={true}
-          initialCenter={vehicle ? [vehicle.last_latitude, vehicle.last_longitude] : (transitDetails.route_coordinates[0] || [25.045, 74.615])}
+          initialCenter={transitDetails.route_coordinates[0] || [25.045, 74.615]}
           initialZoom={13}
           followVehicleCamera={followCamera}
         />
@@ -362,26 +344,28 @@ export const TrackVehicleView: React.FC = () => {
             </div>
           </div>
 
-          {/* Live Telemetry Status Bar */}
+          {/* Simulation / Playback Controls Bar */}
           <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Live Telemetry Active</span>
-              </div>
-            </div>
-
-            {/* UNREQUIRED SIMULATION CONTROLS COMMENTED OUT:
-            <div className="flex items-center gap-2">
-              <button onClick={() => setIsPaused(!isPaused)}>
+              <button
+                onClick={() => setIsPaused(!isPaused)}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              >
                 {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
                 <span>{isPaused ? 'Resume' : 'Pause'}</span>
               </button>
-              <button onClick={() => { setStepIndex(0); setIsPaused(false); }}>
+
+              <button
+                onClick={() => {
+                  setStepIndex(0);
+                  setIsPaused(false);
+                }}
+                className="p-1 rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer"
+                title="Restart Route"
+              >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
             </div>
-            */}
 
             <div className="text-right">
               <span className="text-[10px] text-slate-400 block uppercase">Speed</span>
