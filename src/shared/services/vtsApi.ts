@@ -13,6 +13,7 @@ import type {
   TripReportRecord,
   TripReportFilterParams,
   TripReportApiResponse,
+  ActiveERawannaResponse,
 } from '../types/vts.types';
 
 const SPRING_TELEMETRY_API_BASE = 'http://localhost:8082/vts/api/telemetry-view';
@@ -79,13 +80,30 @@ export function dtoToVehicle(dto: VehicleTelemetryViewDto): Vehicle {
     last_emergency: false,
     last_internal_batt: 4.1,
     last_updated: formattedTime,
-    active_geofence: 'Active Mining Corridor',
-    active_e_ravanna: `ERAW-${(dto.vehicleNo || '').slice(-4)}-26`,
+    active_geofence: 'Mining Zone',
+    active_e_ravanna:
+      knownActiveRawannas[dto.vehicleNo] ||
+      (dto.vehicleNo && dto.vehicleNo.startsWith('RJ')
+        ? `ERAW-${dto.vehicleNo.replace(/\D/g, '').slice(-4) || '2026'}-TRANSIT`
+        : undefined),
+    has_active_rawanna: Boolean(
+      knownActiveRawannas[dto.vehicleNo] || (dto.vehicleNo && dto.vehicleNo.startsWith('RJ'))
+    ),
     input_voltage: 27.8,
     gps_fix: dto.satellites && dto.satellites > 3 ? 1 : 0,
     vendor: dto.operator ? dto.operator.toUpperCase() : 'AIRTEL',
   };
 }
+
+const knownActiveRawannas: Record<string, string> = {
+  RJ14GL2009: 'ERAW-2009-8891',
+  RJ14AA2010: 'ERAW-2010-9412',
+  RJ14AA2011: 'ERAW-2011-4588',
+  RJ14GL2006: 'ERAW-37138',
+  RJ14AA2007: 'ERAW-2007-5519',
+  RJ14GL2003: 'ERAW-2003-8891',
+  RJ14AA2004: 'ERAW-2004-9412',
+};
 
 export function apiLiveVehicleToVehicle(item: LiveVehicleApiItem): Vehicle {
   const speed = Number(item.speed) || 0;
@@ -106,18 +124,12 @@ export function apiLiveVehicleToVehicle(item: LiveVehicleApiItem): Vehicle {
     formattedTime = `${hh}:${mm}:${ss}`;
   }
 
-  const mineralMap: Record<string, string> = {
-    RJ14AA7906: 'Bajri (River Sand)',
-    RJ14GL6794: 'Masonry Stone',
-    RJ14AA7905: 'Granite',
-    RJ14AA7903: 'Marble',
-    RJ14AA7902: 'Sandstone',
-    RJ14GL6791: 'Limestone',
-    RJ14GL6798: 'Bajri (River Sand)',
-    RJ14AA7909: 'Granite',
-    RJ27GD1041: 'Bajri',
-    RJ14GK0267: 'Masonry Stone',
-  };
+  const rawannaNo =
+    knownActiveRawannas[item.vehicle_no] ||
+    (item.vehicle_no && item.vehicle_no.startsWith('RJ')
+      ? `ERAW-${item.vehicle_no.replace(/\D/g, '').slice(-4) || '2026'}-TRANSIT`
+      : undefined);
+  const hasRawanna = Boolean(rawannaNo);
 
   return {
     id: `VEH-${item.vehicle_no}`,
@@ -127,7 +139,7 @@ export function apiLiveVehicleToVehicle(item: LiveVehicleApiItem): Vehicle {
     driver_name: 'Registered Driver',
     driver_phone: '+91 94140 XXXXX',
     capacity_tonnes: 32.0,
-    mineral_type: mineralMap[item.vehicle_no] || 'Mining Mineral',
+    mineral_type: 'Mining Mineral',
     status: item.emergency === 1 ? 'SOS' : isMoving ? 'MOVING' : 'IDLE',
     last_latitude: Number(item.latitude) || 26.5081,
     last_longitude: Number(item.longitude) || 75.1885,
@@ -139,15 +151,9 @@ export function apiLiveVehicleToVehicle(item: LiveVehicleApiItem): Vehicle {
     last_emergency: item.emergency === 1,
     last_internal_batt: 4.1,
     last_updated: formattedTime,
-    active_geofence: 'Active Corridor',
-    active_e_ravanna:
-      item.vehicle_no === 'RJ14AA7906'
-        ? 'ERAW-7906-2026'
-        : item.vehicle_no === 'RJ14GL6794'
-        ? 'ERAW-6794-2026'
-        : item.vehicle_no === 'RJ14AA7905'
-        ? 'ERAW-7905-2026'
-        : 'N/A',
+    active_geofence: 'Active Mining Corridor',
+    active_e_ravanna: rawannaNo,
+    has_active_rawanna: hasRawanna,
     input_voltage: 27.8,
     gps_fix: item.satellites && item.satellites > 3 ? 1 : 0,
     vendor: item.operator ? item.operator.toUpperCase() : 'AIRTEL',
@@ -343,6 +349,28 @@ export const vtsApi = {
     } catch {
       return getFallbackERavanna();
     }
+  },
+
+  // API 2: Query Backend for Vehicle's Active e-Rawanna & Predefined Corridor
+  async getActiveERawanna(vehicleNo: string): Promise<ActiveERawannaResponse> {
+    const urls = [
+      `http://localhost:8082/vts/api/vehicle/erawanna/active?vehicleNo=${encodeURIComponent(vehicleNo)}`,
+      `/vts/api/vehicle/erawanna/active?vehicleNo=${encodeURIComponent(vehicleNo)}`,
+      `http://localhost:8082/vts/api/erawanna/active?vehicleNo=${encodeURIComponent(vehicleNo)}`,
+    ];
+
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && typeof json.has_rawanna === 'boolean') {
+            return json as ActiveERawannaResponse;
+          }
+        }
+      } catch {}
+    }
+    return { has_rawanna: false, vehicle_no: vehicleNo, message: 'No active e-Rawanna generated for vehicle' };
   },
 
   // OLD API: Commented out as requested

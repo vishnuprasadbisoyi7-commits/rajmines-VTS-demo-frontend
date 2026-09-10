@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router';
 import type { Vehicle, RawannaTransitDetails, TelemetryPoint, GISLayerConfig } from '@/shared/types/vts.types';
 import { vtsApi } from '@/shared/services/vtsApi';
 import {
+  buildTransitDetailsWithLiveTelemetry,
   getRawannaTransitForVehicle,
-  // calculateRoadHeading,
 } from '@/shared/data/rawannaTransitData';
 import { RajdharaaMap, type RajdharaaMapHandle } from '@/shared/components/RajdharaaMap';
 import {
@@ -15,12 +15,10 @@ import {
   Scale,
   MapPin,
   Calendar,
-  // Play,
-  // Pause,
-  // RotateCcw,
   Navigation,
   Loader2,
   AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
 
 export const TrackVehicleView: React.FC = () => {
@@ -29,14 +27,13 @@ export const TrackVehicleView: React.FC = () => {
   const mapRef = useRef<RajdharaaMapHandle | null>(null);
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [backendRawanna, setBackendRawanna] = useState<RawannaTransitDetails | null>(null);
   const [transitDetails, setTransitDetails] = useState<RawannaTransitDetails | null>(null);
   const [gisLayers, setGisLayers] = useState<GISLayerConfig[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  // UNREQUIRED SIMULATION STATES COMMENTED OUT:
-  // Map camera is static by default (toggleable via "Free Camera / Follow Vehicle" button)
   const [followCamera, setFollowCamera] = useState<boolean>(false);
 
-  // 1. Initial Load: Fetch vehicle metadata, GPS history, and GIS layers
+  // 1. Initial Load: Fetch vehicle metadata, GPS history, GIS layers, and authentic backend e-Rawanna
   useEffect(() => {
     let isMounted = true;
 
@@ -45,10 +42,11 @@ export const TrackVehicleView: React.FC = () => {
       setIsLoading(true);
 
       try {
-        const [vehiclesList, meta, historyPoints] = await Promise.all([
+        const [vehiclesList, meta, historyPoints, rawannaRes] = await Promise.all([
           vtsApi.getAllVehicles(),
           vtsApi.getGISMetadata(),
           vtsApi.getVehicleTrail(regNo, 300).catch(() => [] as TelemetryPoint[]),
+          vtsApi.getActiveERawanna(regNo),
         ]);
 
         if (!isMounted) return;
@@ -62,13 +60,13 @@ export const TrackVehicleView: React.FC = () => {
             reg_no: regNo,
             imei: '861819083751564',
             vehicle_type: 'Heavy Mining Tipper',
-            driver_name: 'BABU LAL RAYAKA',
-            driver_phone: '9687262425',
+            driver_name: rawannaRes.data?.driver_name || 'Registered Driver',
+            driver_phone: rawannaRes.data?.driver_phone || '',
             capacity_tonnes: 16.0,
-            mineral_type: 'Bajri',
+            mineral_type: rawannaRes.data?.mineral_name || 'Mining Mineral',
             status: 'MOVING' as const,
-            last_latitude: historyPoints[0]?.lat || 25.045,
-            last_longitude: historyPoints[0]?.lng || 74.615,
+            last_latitude: historyPoints[0]?.lat || 26.7099,
+            last_longitude: historyPoints[0]?.lng || 75.8840,
             last_speed: 30.0,
             last_heading: 180,
             last_altitude: 239.6,
@@ -77,18 +75,29 @@ export const TrackVehicleView: React.FC = () => {
             last_emergency: false,
             last_internal_batt: 4.1,
             last_updated: new Date().toLocaleTimeString('en-GB'),
-            active_geofence: 'Active Corridor',
-            active_e_ravanna: 'HAJS1040770053',
+            active_geofence: 'Mining Zone',
+            active_e_ravanna: rawannaRes.data?.pass_no || undefined,
+            has_active_rawanna: rawannaRes.has_rawanna,
             input_voltage: 27.8,
             gps_fix: 1,
-            vendor: 'iTriangle',
+            vendor: 'AIRTEL',
           };
 
-        // Construct transit details (Point A -> Point B -> Point C) strictly from genuine backend telemetry
-        const transit = getRawannaTransitForVehicle(targetVehicle, historyPoints);
-
         setVehicle(targetVehicle);
-        setTransitDetails(transit);
+
+        // If backend returned active e-Rawanna, use that authentic predefined route!
+        if (rawannaRes.has_rawanna && rawannaRes.data) {
+          setBackendRawanna(rawannaRes.data);
+          const transit = buildTransitDetailsWithLiveTelemetry(rawannaRes.data, targetVehicle, historyPoints);
+          setTransitDetails(transit);
+        } else if (targetVehicle.has_active_rawanna || (targetVehicle.active_e_ravanna && targetVehicle.active_e_ravanna !== 'N/A')) {
+          const fallbackTransit = getRawannaTransitForVehicle(targetVehicle, historyPoints);
+          setTransitDetails(fallbackTransit);
+        } else {
+          // No e-Rawanna generated for this vehicle
+          setBackendRawanna(null);
+          setTransitDetails(null);
+        }
       } catch (err) {
         console.error('Failed to load tracking data for vehicle:', err);
       } finally {
@@ -170,7 +179,13 @@ export const TrackVehicleView: React.FC = () => {
 
         if (updatedVehicle) {
           setVehicle(updatedVehicle);
-          setTransitDetails(getRawannaTransitForVehicle(updatedVehicle, trail));
+          if (backendRawanna) {
+            setTransitDetails(buildTransitDetailsWithLiveTelemetry(backendRawanna, updatedVehicle, trail));
+          } else if (updatedVehicle.has_active_rawanna || (updatedVehicle.active_e_ravanna && updatedVehicle.active_e_ravanna !== 'N/A')) {
+            setTransitDetails(getRawannaTransitForVehicle(updatedVehicle, trail));
+          } else {
+            setTransitDetails(null);
+          }
 
           // Auto pan map camera to follow vehicle if enabled
           if (followCamera && mapRef.current && updatedVehicle.last_latitude && updatedVehicle.last_longitude) {
@@ -187,9 +202,9 @@ export const TrackVehicleView: React.FC = () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [regNo, followCamera]);
+  }, [regNo, followCamera, backendRawanna]);
 
-  if (isLoading || !vehicle || !transitDetails) {
+  if (isLoading || !vehicle) {
     return (
       <div className="bg-white dark:bg-[#0a192f] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs p-12 flex flex-col items-center justify-center h-[calc(100vh-6.5rem)]">
         <Loader2 className="w-8 h-8 text-cyan-600 animate-spin mb-3" />
@@ -265,175 +280,212 @@ export const TrackVehicleView: React.FC = () => {
           showDistricts={false}
           showDivisionLabels={false}
           transitDetails={transitDetails}
-          isTransitMode={true}
-          initialCenter={vehicle ? [vehicle.last_latitude, vehicle.last_longitude] : (transitDetails.route_coordinates[0] || [25.045, 74.615])}
+          isTransitMode={Boolean(transitDetails)}
+          initialCenter={vehicle ? [vehicle.last_latitude, vehicle.last_longitude] : (transitDetails?.route_coordinates[0] || [26.7099, 75.8840])}
           initialZoom={13}
           followVehicleCamera={followCamera}
         />
 
-        {/* Floating Transit Pass Card on Top Right (Exact match of Image media_1788757108282.png) */}
-        <div className="absolute top-4 right-4 z-[1000] w-[340px] max-w-[calc(100vw-2.5rem)] bg-white/95 dark:bg-[#0c1e38]/95 rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-700/80 p-4 text-slate-800 dark:text-slate-100 backdrop-blur-md transition-all">
-          {/* Header: Truck Icon + Reg No + Status Badge */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2.5">
-              <Truck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-              <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">
-                {transitDetails.vehicle_reg_no}
+        {/* Floating Transit Pass Card on Top Right */}
+        {transitDetails ? (
+          <div className="absolute top-4 right-4 z-[1000] w-[340px] max-w-[calc(100vw-2.5rem)] bg-white/95 dark:bg-[#0c1e38]/95 rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-700/80 p-4 text-slate-800 dark:text-slate-100 backdrop-blur-md transition-all">
+            {/* Header: Truck Icon + Reg No + Status Badge */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <Truck className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">
+                  {transitDetails.vehicle_reg_no}
+                </span>
+              </div>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                transitDetails.is_deviated
+                  ? 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-800/60 animate-pulse'
+                  : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
+              }`}>
+                {transitDetails.status || 'In Transit'}
               </span>
             </div>
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              transitDetails.is_deviated
-                ? 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-800/60 animate-pulse'
-                : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
-            }`}>
-              {transitDetails.status || 'In Transit'}
-            </span>
-          </div>
 
-          {/* Off-Corridor Deviation Warning Banner */}
-          {transitDetails.is_deviated && (
-            <div className="mt-3 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 flex items-start gap-2 text-xs text-red-700 dark:text-red-300 animate-pulse">
-              <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+            {/* Off-Corridor Deviation Warning Banner */}
+            {transitDetails.is_deviated && (
+              <div className="mt-3 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 flex items-start gap-2 text-xs text-red-700 dark:text-red-300 animate-pulse">
+                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="font-bold block">Off-Corridor Deviation Detected!</span>
+                  <span className="text-[11px] text-red-600 dark:text-red-400">
+                    Truck is {transitDetails.deviation_distance_meters || 0}m outside authorized Point A &rarr; B &rarr; C corridor.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* TP Number Row */}
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 mt-3 mb-2">
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              <span>TP: {transitDetails.pass_no}</span>
+            </div>
+
+            {/* Driver Details Row */}
+            <div className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-200 mb-2">
+              <User className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
               <div>
-                <span className="font-bold block">Off-Corridor Deviation Detected!</span>
-                <span className="text-[11px] text-red-600 dark:text-red-400">
-                  Truck is {transitDetails.deviation_distance_meters || 0}m outside authorized Point A &rarr; B &rarr; C corridor.
+                <span className="font-medium text-slate-500 dark:text-slate-400">Driver: </span>
+                <span className="font-bold uppercase">{transitDetails.driver_name}</span>
+                <div className="text-slate-500 dark:text-slate-400 font-mono text-[11px] mt-0.5">
+                  {transitDetails.driver_phone} •
+                </div>
+              </div>
+            </div>
+
+            {/* Mineral & Weight & Weighbridge */}
+            <div className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-200 mb-2.5">
+              <Scale className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+              <div className="w-full">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium text-slate-500 dark:text-slate-400">Mineral: </span>
+                    <span className="font-bold">{transitDetails.mineral_name}</span>
+                  </div>
+                  <span className="font-bold text-slate-900 dark:text-white">{transitDetails.tonnage}</span>
+                </div>
+                <div className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 font-mono">
+                  Weighbridge: {transitDetails.weighbridge_code}
+                </div>
+              </div>
+            </div>
+
+            {/* From: Starting Point (Green Pin) */}
+            <div className="flex items-start gap-2 text-xs mb-2">
+              <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10.5px] uppercase tracking-wider block">
+                  From:
+                </span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {transitDetails.pointA.name}
                 </span>
               </div>
             </div>
-          )}
 
-          {/* TP Number Row */}
-          <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 mt-3 mb-2">
-            <FileText className="w-4 h-4 flex-shrink-0" />
-            <span>TP: {transitDetails.pass_no}</span>
-          </div>
-
-          {/* Driver Details Row */}
-          <div className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-200 mb-2">
-            <User className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <span className="font-medium text-slate-500 dark:text-slate-400">Driver: </span>
-              <span className="font-bold uppercase">{transitDetails.driver_name}</span>
-              <div className="text-slate-500 dark:text-slate-400 font-mono text-[11px] mt-0.5">
-                {transitDetails.driver_phone} •
+            {/* To: Destination Consignee (Red Pin) */}
+            <div className="flex items-start gap-2 text-xs mb-3">
+              <MapPin className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="text-rose-600 dark:text-rose-400 font-bold text-[10.5px] uppercase tracking-wider block">
+                  To: {transitDetails.pointC.name}
+                </span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] block">
+                  {transitDetails.consignee_address || transitDetails.pointC.subtext}
+                </span>
               </div>
             </div>
-          </div>
 
-          {/* Mineral & Weight & Weighbridge */}
-          <div className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-200 mb-2.5">
-            <Scale className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-            <div className="w-full">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-slate-500 dark:text-slate-400">Mineral: </span>
-                  <span className="font-bold">{transitDetails.mineral_name}</span>
+            {/* Generated & Expire At Timestamps */}
+            <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>
+                  Generated At: <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{transitDetails.generated_at}</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>
+                  Expire At: <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{transitDetails.expire_at}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Live Telemetry Status Bar */}
+            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Live Telemetry Active</span>
                 </div>
-                <span className="font-bold text-slate-900 dark:text-white">{transitDetails.tonnage}</span>
               </div>
-              <div className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 font-mono">
-                Weighbridge: {transitDetails.weighbridge_code}
+
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 block uppercase">Speed</span>
+                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+                  {Math.round(vehicle.last_speed)} km/h
+                </span>
               </div>
             </div>
           </div>
-
-          {/* From: Starting Point (Green Pin) */}
-          <div className="flex items-start gap-2 text-xs mb-2">
-            <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10.5px] uppercase tracking-wider block">
-                From:
-              </span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {transitDetails.pointA.name}
-              </span>
-            </div>
-          </div>
-
-          {/* To: Destination Consignee (Red Pin) */}
-          <div className="flex items-start gap-2 text-xs mb-3">
-            <MapPin className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <span className="text-rose-600 dark:text-rose-400 font-bold text-[10.5px] uppercase tracking-wider block">
-                To: {transitDetails.pointC.name}
-              </span>
-              <span className="text-slate-500 dark:text-slate-400 text-[11px] block">
-                {transitDetails.consignee_address || transitDetails.pointC.subtext}
-              </span>
-            </div>
-          </div>
-
-          {/* Generated & Expire At Timestamps */}
-          <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span>
-                Generated At: <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{transitDetails.generated_at}</span>
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span>
-                Expire At: <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{transitDetails.expire_at}</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Live Telemetry Status Bar */}
-          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Live Telemetry Active</span>
+        ) : (
+          /* Transit Tracking Restricted Card for vehicles without e-Rawanna */
+          <div className="absolute top-4 right-4 z-[1000] w-[340px] max-w-[calc(100vw-2.5rem)] bg-white/95 dark:bg-[#0c1e38]/95 rounded-2xl shadow-xl border border-amber-200/90 dark:border-amber-700/80 p-5 text-slate-800 dark:text-slate-100 backdrop-blur-md transition-all">
+            <div className="flex items-center gap-2.5 pb-3 border-b border-amber-100 dark:border-amber-900/50">
+              <ShieldAlert className="w-5 h-5 text-amber-500 flex-shrink-0" />
+              <div>
+                <span className="font-bold text-sm text-slate-900 dark:text-white block">
+                  Transit Corridor Restricted
+                </span>
+                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  e-Rawanna Not Generated
+                </span>
               </div>
             </div>
 
-            {/* UNREQUIRED SIMULATION CONTROLS COMMENTED OUT:
-            <div className="flex items-center gap-2">
-              <button onClick={() => setIsPaused(!isPaused)}>
-                {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                <span>{isPaused ? 'Resume' : 'Pause'}</span>
-              </button>
-              <button onClick={() => { setStepIndex(0); setIsPaused(false); }}>
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
+            <div className="mt-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p>
+                Authorized corridor route tracking is restricted for vehicle <strong className="font-mono text-slate-900 dark:text-white">{vehicle.reg_no}</strong> because no active e-Rawanna transit pass has been issued.
+              </p>
+              <div className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 space-y-1.5 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">GPS Telemetry:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">Live (Routine Fleet)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Current Speed:</span>
+                  <span className="font-mono font-bold text-slate-700 dark:text-slate-200">{Math.round(vehicle.last_speed)} km/h</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Live Coordinates:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                    {vehicle.last_latitude.toFixed(4)}, {vehicle.last_longitude.toFixed(4)}
+                  </span>
+                </div>
+              </div>
             </div>
-            */}
 
-            <div className="text-right">
-              <span className="text-[10px] text-slate-400 block uppercase">Speed</span>
-              <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
-                {Math.round(vehicle.last_speed)} km/h
-              </span>
+            <button
+              onClick={() => navigate('/live-tracking')}
+              className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Return to Fleet Map View</span>
+            </button>
+          </div>
+        )}
+
+        {/* Route Corridor Legend (Bottom-Left) - Only visible when an authorized transit route corridor is active */}
+        {transitDetails && (
+          <div className="absolute bottom-6 left-6 z-[1000] bg-white/95 dark:bg-[#0c1e38]/95 backdrop-blur-md px-3.5 py-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-lg text-xs space-y-2 select-none pointer-events-auto">
+            <div className="font-bold text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+              <span>Route Corridor Legend</span>
+              <span className="text-[10px] text-slate-400 font-normal">Buffer: 200m</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="w-5 h-1 border-t-2 border-dashed border-slate-500 block"></span>
+              <span className="text-slate-700 dark:text-slate-300 font-medium">Planned Corridor (A &rarr; B &rarr; C)</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="w-5 h-1.5 bg-emerald-600 rounded-full block"></span>
+              <span className="text-slate-700 dark:text-slate-300 font-medium">Real-Time Traveled Route</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="w-5 h-1.5 bg-red-600 rounded-full block"></span>
+              <span className="text-slate-700 dark:text-slate-300 font-medium">Deviated Path (&gt; 200m off route)</span>
+            </div>
+            <div className="flex items-center gap-3 pt-1 text-[10.5px] text-slate-500 dark:text-slate-400">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-600 text-[8px] text-white flex items-center justify-center font-bold">A</span> Mine</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600 text-[8px] text-white flex items-center justify-center font-bold">B</span> WB</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-600 text-[8px] text-white flex items-center justify-center font-bold">C</span> Consignee</span>
             </div>
           </div>
-        </div>
-
-        {/* Route Corridor Legend (Bottom-Left) */}
-        <div className="absolute bottom-6 left-6 z-[1000] bg-white/95 dark:bg-[#0c1e38]/95 backdrop-blur-md px-3.5 py-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-lg text-xs space-y-2 select-none pointer-events-auto">
-          <div className="font-bold text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
-            <span>Route Corridor Legend</span>
-            <span className="text-[10px] text-slate-400 font-normal">Buffer: 200m</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-5 h-1 border-t-2 border-dashed border-slate-500 block"></span>
-            <span className="text-slate-700 dark:text-slate-300 font-medium">Planned Corridor (A &rarr; B &rarr; C)</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-5 h-1.5 bg-emerald-600 rounded-full block"></span>
-            <span className="text-slate-700 dark:text-slate-300 font-medium">Real-Time Traveled Route</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-5 h-1.5 bg-red-600 rounded-full block"></span>
-            <span className="text-slate-700 dark:text-slate-300 font-medium">Deviated Path (&gt; 200m off route)</span>
-          </div>
-          <div className="flex items-center gap-3 pt-1 text-[10.5px] text-slate-500 dark:text-slate-400">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-600 text-[8px] text-white flex items-center justify-center font-bold">A</span> Mine</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600 text-[8px] text-white flex items-center justify-center font-bold">B</span> WB</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-600 text-[8px] text-white flex items-center justify-center font-bold">C</span> Consignee</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

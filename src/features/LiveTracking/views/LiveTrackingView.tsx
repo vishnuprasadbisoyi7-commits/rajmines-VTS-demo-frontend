@@ -21,6 +21,7 @@ import {
   Zap,
   Key,
   Navigation,
+  Lock,
   // X,
   // Play,
   // Pause,
@@ -163,6 +164,11 @@ export const LiveTrackingView: React.FC = () => {
   // Open individual vehicle tracking in dedicated new page/component (matching user screenshot)
   const handleTrackVehicle = (vehicle: Vehicle, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    const hasRawanna = Boolean(vehicle.has_active_rawanna) || (Boolean(vehicle.active_e_ravanna) && vehicle.active_e_ravanna !== 'N/A');
+    if (!hasRawanna) {
+      alert(`Transit corridor tracking is unavailable for ${vehicle.reg_no} because no active e-Rawanna has been generated.`);
+      return;
+    }
     navigate(`/track-vehicle/${vehicle.reg_no}`);
   };
 
@@ -352,8 +358,8 @@ export const LiveTrackingView: React.FC = () => {
                           {vehicle.active_e_ravanna}
                         </span>
                       ) : (
-                        <span className="text-slate-500 dark:text-slate-400 text-xs">
-                          {vehicle.active_e_ravanna || 'N/A'}
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-mono text-[10.5px]">
+                          Not Generated
                         </span>
                       )}
                     </div>
@@ -380,14 +386,26 @@ export const LiveTrackingView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Track Vehicle Button (Opens individual vehicle tracking in dedicated page/component) */}
-                  <button
-                    onClick={(e) => handleTrackVehicle(vehicle, e)}
-                    className="w-full mt-2.5 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs bg-[#007b83] hover:bg-[#00636b] text-white"
-                  >
-                    <Navigation className="w-3.5 h-3.5" />
-                    <span>Track Vehicle</span>
-                  </button>
+                  {/* Track Vehicle Button: Enabled strictly for vehicles with active e-Rawanna */}
+                  {hasActiveRawanna ? (
+                    <button
+                      onClick={(e) => handleTrackVehicle(vehicle, e)}
+                      className="w-full mt-2.5 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs bg-[#007b83] hover:bg-[#00636b] text-white"
+                      title="Track authorized transit corridor for active e-Rawanna"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Track Vehicle</span>
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full mt-2.5 py-2 px-3 text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 cursor-not-allowed select-none"
+                      title="Transit tracking unavailable: No active e-Rawanna generated for this vehicle"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>e-Rawanna Not Generated</span>
+                    </button>
+                  )}
                 </div>
               );
             })

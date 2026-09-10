@@ -32,9 +32,17 @@ export interface Vehicle {
   last_updated: string;
   active_geofence?: string;
   active_e_ravanna?: string;
+  has_active_rawanna?: boolean;
   input_voltage?: number;
   gps_fix?: number;
   vendor?: string;
+}
+
+export interface ActiveERawannaResponse {
+  has_rawanna: boolean;
+  vehicle_no?: string;
+  data?: RawannaTransitDetails;
+  message?: string;
 }
 
 export interface VehicleTelemetryViewDto {

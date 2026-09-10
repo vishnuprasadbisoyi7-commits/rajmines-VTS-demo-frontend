@@ -91,7 +91,7 @@ function minDistanceToPolylineMeters(
 }
 
 // Helper: Interpolate points between two coordinates
-function interpolateWaypoints(
+export function interpolateWaypoints(
   start: [number, number],
   end: [number, number],
   steps: number
@@ -104,6 +104,65 @@ function interpolateWaypoints(
   return points;
 }
 
+/**
+ * Extracts strictly the CURRENT active one-way trip (Point A -> Point B -> Point C).
+ * Eliminates criss-crossing zig-zags caused by simulation loop resets (sudden jump > 1500m)
+ * or historical points accumulated from previous simulation loops.
+ */
+function extractCurrentOneWayTrip(
+  historyPoints: [number, number][],
+  originCoords: [number, number]
+): [number, number][] {
+  if (!historyPoints || historyPoints.length === 0) return [];
+
+  // Find the last simulation loop reset or teleportation jump
+  let lastJumpIdx = 0;
+  for (let i = 1; i < historyPoints.length; i++) {
+    const prev = historyPoints[i - 1];
+    const curr = historyPoints[i];
+    const dist = haversineDistanceMeters(prev[0], prev[1], curr[0], curr[1]);
+    // A sudden jump > 1500m in consecutive telemetry points indicates a simulation loop reset back to Point A
+    if (dist > 1500) {
+      lastJumpIdx = i;
+    }
+  }
+
+  // Take only the contiguous telemetry points from the latest active one-way trip
+  const tripPoints = historyPoints.slice(lastJumpIdx);
+
+  // Filter out any anomalous telemetry points located outside the broader 180km regional boundary
+  const filtered = tripPoints.filter(
+    (pt) => haversineDistanceMeters(pt[0], pt[1], originCoords[0], originCoords[1]) < 180000
+  );
+
+  return filtered.length > 0 ? filtered : tripPoints;
+}
+
+// 1. Authentic 18-point one-way Highway Corridors matching simulation Excel files:
+export const jaipurCorridorPlanned: [number, number][] = [
+  [26.78278, 76.07351], [26.78428, 76.06222], [26.78309, 76.05607], [26.77168, 76.05215],
+  [26.76387, 76.04650], [26.76347, 76.03656], [26.76476, 76.02370], [26.75845, 76.00586],
+  [26.73632, 75.99620], [26.72478, 75.99204], [26.71503, 75.98179], [26.72329, 75.96313],
+  [26.72562, 75.94404], [26.72203, 75.92590], [26.70979, 75.90233], [26.70453, 75.89276],
+  [26.70737, 75.88502], [26.70990, 75.88402]
+];
+
+export const abuRoadCorridorPlanned: [number, number][] = [
+  [24.87505, 72.84423], [24.86930, 72.83808], [24.86578, 72.83403], [24.86002, 72.82727],
+  [24.85589, 72.82137], [24.84986, 72.81492], [24.84346, 72.80992], [24.83613, 72.80487],
+  [24.83269, 72.80038], [24.83122, 72.79461], [24.82838, 72.79112], [24.82286, 72.78719],
+  [24.81433, 72.78100], [24.80615, 72.77418], [24.80217, 72.76986], [24.79823, 72.76403],
+  [24.79530, 72.75582], [24.79705, 72.75560]
+];
+
+export const ajmerCorridorPlanned: [number, number][] = [
+  [26.91236, 75.78727], [26.85508, 75.73398], [26.79823, 75.68010], [26.74324, 75.62442],
+  [26.68817, 75.56865], [26.63818, 75.50916], [26.59969, 75.44102], [26.56114, 75.37279],
+  [26.52265, 75.30464], [26.51227, 75.22745], [26.50404, 75.14960], [26.49575, 75.07171],
+  [26.48746, 74.99387], [26.47918, 74.91596], [26.47093, 74.83814], [26.46264, 74.76020],
+  [26.45438, 74.68236], [26.45026, 74.64344]
+];
+
 // Stable corridor cache so planned route and landmarks A, B, C remain permanently fixed during tracking
 interface CorridorDef {
   pointA: [number, number];
@@ -114,23 +173,24 @@ interface CorridorDef {
 
 const vehicleCorridorCache = new Map<string, CorridorDef>();
 
-export function getRawannaTransitForVehicle(
+export function buildTransitDetailsWithLiveTelemetry(
+  backendRawanna: RawannaTransitDetails,
   vehicle: Vehicle,
   historyPoints?: TelemetryPoint[]
 ): RawannaTransitDetails {
-  const regKey = (vehicle.reg_no || '').toUpperCase().trim();
   const currPos: [number, number] = [
-    Number(vehicle.last_latitude) || 26.5081,
-    Number(vehicle.last_longitude) || 75.1885,
+    Number(vehicle.last_latitude) || backendRawanna.pointA.coords[0],
+    Number(vehicle.last_longitude) || backendRawanna.pointA.coords[1],
   ];
 
-  // 1. Gather historical GPS telemetry points in chronological ascending order
-  const historyCoords: [number, number][] =
+  const rawHistoryCoords: [number, number][] =
     historyPoints && historyPoints.length > 0
       ? historyPoints.map((p) => [p.lat, p.lng] as [number, number])
       : [];
 
-  // Ensure current live position is the head of the traveled trail
+  // Extract strictly the CURRENT active one-way trip (A -> B -> C)
+  const historyCoords = extractCurrentOneWayTrip(rawHistoryCoords, backendRawanna.pointA.coords);
+
   if (historyCoords.length === 0) {
     historyCoords.push(currPos);
   } else {
@@ -140,104 +200,184 @@ export function getRawannaTransitForVehicle(
     }
   }
 
-  // 2. Establish FIXED STATIC PLANNED ROUTE (Point A -> Point B -> Point C)
-  let corridor = vehicleCorridorCache.get(regKey);
-  if (!corridor) {
-    if (regKey.includes('2003') || regKey.includes('GL2003')) {
-      // Jaipur Southwest Transit Corridor: Bassi Mining Lease (A) -> NH 21 Weighbridge (B) -> Jaipur Hub (C)
-      const pA: [number, number] = [26.76523, 76.02098];
-      const pB: [number, number] = [26.72464, 75.96091];
-      const pC: [number, number] = [26.69988, 75.88402];
-      const planned: [number, number][] = [
-        pA,
-        [26.76094, 76.00729],
-        [26.74281, 75.99837],
-        [26.73241, 75.99394],
-        [26.72478, 75.99204],
-        [26.71286, 75.98692],
-        [26.71843, 75.97298],
-        pB,
-        [26.72508, 75.94668],
-        [26.72380, 75.93672],
-        [26.71870, 75.91854],
-        [26.70929, 75.90106],
-        [26.70821, 75.89480],
-        pC,
-      ];
-      corridor = { pointA: pA, pointB: pB, pointC: pC, plannedRoute: planned };
-    } else if (regKey.includes('2004') || regKey.includes('AA2004')) {
-      // Abu Road / Sirohi Corridor: Pindwara Mining Lease (A) -> NH 27 Weighbridge (B) -> Abu Road Hub (C)
-      const pA: [number, number] = [24.86859, 72.83726];
-      const pB: [number, number] = [24.83266, 72.79998];
-      const pC: [number, number] = [24.79705, 72.75560];
-      const planned: [number, number][] = [
-        pA,
-        [24.86009, 72.82741],
-        [24.85082, 72.81586],
-        [24.83960, 72.80727],
-        pB,
-        [24.82905, 72.79189],
-        [24.81930, 72.78451],
-        [24.80441, 72.77293],
-        [24.79794, 72.76340],
-        pC,
-      ];
-      corridor = { pointA: pA, pointB: pB, pointC: pC, plannedRoute: planned };
-    } else if (regKey.includes('2005') || regKey.includes('AA2005')) {
-      // Jaipur to Ajmer Corridor: Jaipur Lease (A) -> Dudu Weighbridge (B) -> Ajmer Hub (C)
-      const pA: [number, number] = [26.84204, 75.72185];
-      const pB: [number, number] = [26.58394, 75.41312];
-      const pC: [number, number] = [26.45026, 74.64344];
-      const planned: [number, number][] = [
-        pA,
-        [26.74572, 75.62688],
-        [26.65068, 75.53073],
-        pB,
-        [26.51943, 75.29472],
-        [26.50517, 75.16019],
-        [26.49084, 75.02572],
-        [26.47663, 74.89120],
-        [26.46233, 74.75675],
-        pC,
-      ];
-      corridor = { pointA: pA, pointB: pB, pointC: pC, plannedRoute: planned };
-    } else {
-      // Dynamic fallback corridor for any new vehicle
-      const pA: [number, number] = historyCoords[0] || [currPos[0] - 0.04, currPos[1] - 0.04];
-      const headingRad = ((vehicle.last_heading || 270) * Math.PI) / 180;
-      const fwdLat = Math.cos(headingRad) * 0.06;
-      const fwdLng = Math.sin(headingRad) * 0.06;
-      const pC: [number, number] = [currPos[0] + (fwdLat || -0.05), currPos[1] + (fwdLng || -0.05)];
-      const pB: [number, number] = [(pA[0] + pC[0]) / 2, (pA[1] + pC[1]) / 2];
-
-      const planned: [number, number][] = [
-        pA,
-        ...interpolateWaypoints(pA, pB, 4),
-        pB,
-        ...interpolateWaypoints(pB, pC, 4),
-        pC,
-      ];
-      corridor = { pointA: pA, pointB: pB, pointC: pC, plannedRoute: planned };
-    }
-    vehicleCorridorCache.set(regKey, corridor);
-  }
-
-  // 3. Traveled Path: Starts at Point A and connects GPS history up to the current vehicle location
   const traveledRoute: [number, number][] = [];
   if (
-    Math.abs(historyCoords[0][0] - corridor.pointA[0]) > 0.002 ||
-    Math.abs(historyCoords[0][1] - corridor.pointA[1]) > 0.002
+    historyCoords.length > 0 &&
+    (Math.abs(historyCoords[0][0] - backendRawanna.pointA.coords[0]) > 0.001 ||
+     Math.abs(historyCoords[0][1] - backendRawanna.pointA.coords[1]) > 0.001)
+  ) {
+    traveledRoute.push(backendRawanna.pointA.coords);
+  }
+  traveledRoute.push(...historyCoords);
+
+  const planned = backendRawanna.planned_route || backendRawanna.route_coordinates;
+  const distToPlanned = minDistanceToPolylineMeters(currPos, planned);
+  const DEVIATION_BUFFER_METERS = 200;
+  const isDeviated = distToPlanned > DEVIATION_BUFFER_METERS;
+
+  const deviatedRoute: [number, number][] = [];
+  if (isDeviated) {
+    for (const pt of historyCoords) {
+      if (minDistanceToPolylineMeters(pt, planned) > DEVIATION_BUFFER_METERS) {
+        deviatedRoute.push(pt);
+      }
+    }
+    if (deviatedRoute.length === 0) {
+      deviatedRoute.push(currPos);
+    }
+  }
+
+  const statusText = isDeviated
+    ? 'Route Deviation Detected'
+    : vehicle.status === 'MOVING'
+    ? 'In Transit (On Route)'
+    : 'Halted (On Route)';
+
+  return {
+    ...backendRawanna,
+    vehicle_reg_no: vehicle.reg_no,
+    route_coordinates: planned,
+    planned_route: planned,
+    traveled_route: traveledRoute,
+    deviated_route: deviatedRoute,
+    is_deviated: isDeviated,
+    deviation_distance_meters: Math.round(distToPlanned),
+    status: statusText,
+    generated_at: backendRawanna.generated_at || vehicle.last_updated || new Date().toLocaleTimeString('en-GB'),
+  };
+}
+
+export function getRawannaTransitForVehicle(
+  vehicle: Vehicle,
+  historyPoints?: TelemetryPoint[],
+  backendRawanna?: RawannaTransitDetails | null
+): RawannaTransitDetails | null {
+  // 1. If backend provided authentic e-Rawanna, build dynamically using the backend's planned route
+  if (backendRawanna) {
+    return buildTransitDetailsWithLiveTelemetry(backendRawanna, vehicle, historyPoints);
+  }
+
+  // 2. Strict policy: If vehicle has no active e-Rawanna generated, return null
+  if (!vehicle.has_active_rawanna && (!vehicle.active_e_ravanna || vehicle.active_e_ravanna === 'N/A')) {
+    return null;
+  }
+
+  const regKey = (vehicle.reg_no || '').toUpperCase().trim();
+  const currPos: [number, number] = [
+    Number(vehicle.last_latitude) || 26.5081,
+    Number(vehicle.last_longitude) || 75.1885,
+  ];
+
+  // 3. Known active e-Rawanna corridors matching authentic simulation routes
+  let corridor = vehicleCorridorCache.get(regKey);
+  if (!corridor) {
+    if (
+      regKey.includes('2009') ||
+      regKey.includes('GL2009') ||
+      regKey.includes('2003') ||
+      regKey.includes('GL2003') ||
+      regKey.includes('2006') ||
+      regKey.includes('GL2006')
+    ) {
+      // Jaipur Southwest Transit Corridor: Bassi Mining Lease (A) -> NH 21 Weighbridge (B) -> Jaipur Hub (C)
+      corridor = {
+        pointA: jaipurCorridorPlanned[0],
+        pointB: jaipurCorridorPlanned[11],
+        pointC: jaipurCorridorPlanned[jaipurCorridorPlanned.length - 1],
+        plannedRoute: jaipurCorridorPlanned,
+      };
+      vehicleCorridorCache.set(regKey, corridor);
+    } else if (
+      regKey.includes('2010') ||
+      regKey.includes('AA2010') ||
+      regKey.includes('2004') ||
+      regKey.includes('AA2004') ||
+      regKey.includes('2007') ||
+      regKey.includes('AA2007')
+    ) {
+      // Abu Road / Sirohi Corridor: Pindwara Mining Lease (A) -> NH 27 Weighbridge (B) -> Abu Road Hub (C)
+      corridor = {
+        pointA: abuRoadCorridorPlanned[0],
+        pointB: abuRoadCorridorPlanned[8],
+        pointC: abuRoadCorridorPlanned[abuRoadCorridorPlanned.length - 1],
+        plannedRoute: abuRoadCorridorPlanned,
+      };
+      vehicleCorridorCache.set(regKey, corridor);
+    } else if (
+      regKey.includes('2011') ||
+      regKey.includes('AA2011') ||
+      regKey.includes('2008') ||
+      regKey.includes('AA2008')
+    ) {
+      // Jaipur-Ajmer Highway Corridor: Jaipur Mining Zone (A) -> NH 48 Bagru (B) -> Ajmer Hub (C)
+      corridor = {
+        pointA: ajmerCorridorPlanned[0],
+        pointB: ajmerCorridorPlanned[4],
+        pointC: ajmerCorridorPlanned[ajmerCorridorPlanned.length - 1],
+        plannedRoute: ajmerCorridorPlanned,
+      };
+      vehicleCorridorCache.set(regKey, corridor);
+    } else if (vehicle.active_e_ravanna && vehicle.active_e_ravanna !== 'N/A') {
+      // Regional automatic fallback for any other fleet vehicle
+      if (currPos[0] < 25.5 && currPos[1] < 73.5) {
+        corridor = {
+          pointA: abuRoadCorridorPlanned[0],
+          pointB: abuRoadCorridorPlanned[8],
+          pointC: abuRoadCorridorPlanned[abuRoadCorridorPlanned.length - 1],
+          plannedRoute: abuRoadCorridorPlanned,
+        };
+      } else if (currPos[0] >= 26.4 && currPos[0] <= 27.2 && currPos[1] >= 74.5 && currPos[1] <= 75.8) {
+        corridor = {
+          pointA: ajmerCorridorPlanned[0],
+          pointB: ajmerCorridorPlanned[4],
+          pointC: ajmerCorridorPlanned[ajmerCorridorPlanned.length - 1],
+          plannedRoute: ajmerCorridorPlanned,
+        };
+      } else {
+        corridor = {
+          pointA: jaipurCorridorPlanned[0],
+          pointB: jaipurCorridorPlanned[11],
+          pointC: jaipurCorridorPlanned[jaipurCorridorPlanned.length - 1],
+          plannedRoute: jaipurCorridorPlanned,
+        };
+      }
+      vehicleCorridorCache.set(regKey, corridor);
+    } else {
+      // No active e-Rawanna registered for this vehicle -> Transit tracking not permitted
+      return null;
+    }
+  }
+
+  const rawHistoryCoords: [number, number][] =
+    historyPoints && historyPoints.length > 0
+      ? historyPoints.map((p) => [p.lat, p.lng] as [number, number])
+      : [];
+
+  const historyCoords = extractCurrentOneWayTrip(rawHistoryCoords, corridor.pointA);
+
+  if (historyCoords.length === 0) {
+    historyCoords.push(currPos);
+  } else {
+    const last = historyCoords[historyCoords.length - 1];
+    if (Math.abs(last[0] - currPos[0]) > 0.00001 || Math.abs(last[1] - currPos[1]) > 0.00001) {
+      historyCoords.push(currPos);
+    }
+  }
+
+  const traveledRoute: [number, number][] = [];
+  if (
+    historyCoords.length > 0 &&
+    (Math.abs(historyCoords[0][0] - corridor.pointA[0]) > 0.001 ||
+     Math.abs(historyCoords[0][1] - corridor.pointA[1]) > 0.001)
   ) {
     traveledRoute.push(corridor.pointA);
   }
   traveledRoute.push(...historyCoords);
 
-  // 4. Route Deviation Check: Check if current vehicle position is within 200m corridor tolerance
   const distToPlanned = minDistanceToPolylineMeters(currPos, corridor.plannedRoute);
-  const DEVIATION_BUFFER_METERS = 200; // 200 meters buffer
+  const DEVIATION_BUFFER_METERS = 200;
   const isDeviated = distToPlanned > DEVIATION_BUFFER_METERS;
 
-  // Identify deviated trail points (GPS breadcrumbs further than buffer from planned corridor)
   const deviatedRoute: [number, number][] = [];
   if (isDeviated) {
     for (const pt of historyCoords) {
@@ -250,11 +390,7 @@ export function getRawannaTransitForVehicle(
     }
   }
 
-  const passNo =
-    vehicle.active_e_ravanna && vehicle.active_e_ravanna !== 'N/A'
-      ? vehicle.active_e_ravanna
-      : `ERAW-${vehicle.reg_no.slice(-4)}-2026`;
-
+  const passNo = vehicle.active_e_ravanna || `ERAW-${vehicle.reg_no.slice(-4)}-2026`;
   const statusText = isDeviated
     ? 'Route Deviation Detected'
     : vehicle.status === 'MOVING'
@@ -265,10 +401,10 @@ export function getRawannaTransitForVehicle(
     pass_no: passNo,
     vehicle_reg_no: vehicle.reg_no,
     driver_name: vehicle.driver_name || 'Babu Lal Rayaka',
-    driver_phone: vehicle.driver_phone || '9829000000',
+    driver_phone: vehicle.driver_phone || '+91 98290 12345',
     mineral_name: vehicle.mineral_type || 'Bajri',
     tonnage: `${vehicle.capacity_tonnes || 16.0} MT`,
-    weighbridge_code: `07${vehicle.reg_no.slice(-3)}`,
+    weighbridge_code: `WB-${vehicle.reg_no.slice(-4)}`,
     pointA: {
       label: 'A',
       name: `${vehicle.reg_no} Mining Lease`,
@@ -278,7 +414,7 @@ export function getRawannaTransitForVehicle(
     },
     pointB: {
       label: 'B',
-      name: `Weighbridge 07${vehicle.reg_no.slice(-3)}`,
+      name: `Weighbridge WB-${vehicle.reg_no.slice(-4)}`,
       subtext: 'Transit Verification Point',
       coords: corridor.pointB,
       type: 'WEIGHBRIDGE',
@@ -290,7 +426,7 @@ export function getRawannaTransitForVehicle(
       coords: corridor.pointC,
       type: 'CONSIGNEE',
     },
-    route_coordinates: corridor.plannedRoute, // Planned route corridor
+    route_coordinates: corridor.plannedRoute,
     planned_route: corridor.plannedRoute,
     traveled_route: traveledRoute,
     deviated_route: deviatedRoute,
@@ -299,8 +435,8 @@ export function getRawannaTransitForVehicle(
     generated_at: vehicle.last_updated || new Date().toLocaleTimeString('en-GB'),
     expire_at: 'Valid In Transit',
     status: statusText,
-    lessee_name: `${vehicle.mineral_type || 'Mining'} Lessee`,
-    consignee_name: `${vehicle.reg_no} Consignee Hub`,
+    lessee_name: 'Mining Lease Holder',
+    consignee_name: `${vehicle.reg_no} Consignee Facility`,
     consignee_address: vehicle.active_geofence || 'Rajasthan Mining Corridor',
   };
 
