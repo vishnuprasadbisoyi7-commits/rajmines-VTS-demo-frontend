@@ -71,17 +71,8 @@ export const ListView: React.FC = () => {
 
   const fetchLiveVehicles = useCallback(async () => {
     try {
-      // GET live vehicles with activeOnly filter
-      let res: Response | null = null;
-      try {
-        res = await fetch(API_CONFIG.VEHICLE.liveDirect(true));
-      } catch {
-        // Fallback to Vite proxy
-        res = await fetch(API_CONFIG.VEHICLE.liveProxy(true));
-      }
-
-      if (res && res.ok) {
-        const json = await res.json();
+      const json = await vtsApi.getLiveVehicles(true);
+      if (json && Array.isArray(json.data)) {
         const rawData: LiveVehicleApiItem[] = json.data || [];
         const data = vtsApi.filterActiveTransmittingItems(rawData);
         const mapped: VehicleTelemetryViewDto[] = data.map((item, idx) => ({

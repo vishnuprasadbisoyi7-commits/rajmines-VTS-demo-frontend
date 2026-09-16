@@ -22,23 +22,20 @@ import {
   API_BASE,
   API_CONFIG,
 } from './api-config';
+import { apiClient } from './httpClient';
 
 async function fetchTelemetry<T>(endpoint: string): Promise<T | null> {
   // Try direct backend first
   try {
-    const res = await fetch(`${SPRING_TELEMETRY_API_BASE}${endpoint}`);
-    if (res.ok) {
-      if (res.status === 204) return null;
-      return (await res.json()) as T;
-    }
+    const res = await apiClient.get<T>(`${SPRING_TELEMETRY_API_BASE}${endpoint}`, { timeout: 3500 });
+    if (res.status === 204) return null;
+    return res.data;
   } catch {
     // Try Vite proxy fallback
     try {
-      const res = await fetch(`${PROXY_TELEMETRY_API_BASE}${endpoint}`);
-      if (res.ok) {
-        if (res.status === 204) return null;
-        return (await res.json()) as T;
-      }
+      const res = await apiClient.get<T>(`${PROXY_TELEMETRY_API_BASE}${endpoint}`, { timeout: 3500 });
+      if (res.status === 204) return null;
+      return res.data;
     } catch {}
   }
   return null;
@@ -234,16 +231,12 @@ export const vtsApi = {
   // 4. Live Vehicles API: Configured in API_CONFIG.VEHICLE
   async getLiveVehicles(activeOnly: boolean = true): Promise<LiveVehicleApiResponse | null> {
     try {
-      const res = await fetch(API_CONFIG.VEHICLE.liveDirect(activeOnly));
-      if (res.ok) {
-        return (await res.json()) as LiveVehicleApiResponse;
-      }
+      const res = await apiClient.get<LiveVehicleApiResponse>(API_CONFIG.VEHICLE.liveDirect(activeOnly), { timeout: 3500 });
+      if (res.data) return res.data;
     } catch {
       try {
-        const res = await fetch(API_CONFIG.VEHICLE.liveProxy(activeOnly));
-        if (res.ok) {
-          return (await res.json()) as LiveVehicleApiResponse;
-        }
+        const res = await apiClient.get<LiveVehicleApiResponse>(API_CONFIG.VEHICLE.liveProxy(activeOnly), { timeout: 3500 });
+        if (res.data) return res.data;
       } catch {}
     }
     return null;
@@ -333,10 +326,8 @@ export const vtsApi = {
 
   async getGeofences(): Promise<GeofenceZone[]> {
     try {
-      const res = await fetch(`${API_BASE}/geofences`);
-      if (!res.ok) throw new Error('Failed to fetch geofences');
-      const data = await res.json();
-      return data.data || [];
+      const res = await apiClient.get<any>(`${API_BASE}/geofences`, { timeout: 5000 });
+      return res.data?.data || [];
     } catch {
       return getFallbackGeofences();
     }
@@ -344,10 +335,8 @@ export const vtsApi = {
 
   async getERavannaPasses(): Promise<ERavannaPass[]> {
     try {
-      const res = await fetch(`${API_BASE}/eravanna`);
-      if (!res.ok) throw new Error('Failed to fetch e-ravanna');
-      const data = await res.json();
-      return data.data || [];
+      const res = await apiClient.get<any>(`${API_BASE}/eravanna`, { timeout: 5000 });
+      return res.data?.data || [];
     } catch {
       return getFallbackERavanna();
     }
@@ -359,12 +348,9 @@ export const vtsApi = {
 
     for (const url of urls) {
       try {
-        const res = await fetch(url);
-        if (res.ok) {
-          const json = await res.json();
-          if (json && typeof json.has_rawanna === 'boolean') {
-            return json as ActiveERawannaResponse;
-          }
+        const res = await apiClient.get<ActiveERawannaResponse>(url, { timeout: 3000 });
+        if (res.data && typeof res.data.has_rawanna === 'boolean') {
+          return res.data;
         }
       } catch {}
     }
@@ -377,19 +363,17 @@ export const vtsApi = {
 
     for (const url of urls) {
       try {
-        const res = await fetch(url);
-        if (res.ok) {
-          const json = await res.json();
-          if (json && (Array.isArray(json.assigned_routes) || Array.isArray(json.routes))) {
-            const routesList = json.assigned_routes || json.routes || [];
-            return {
-              vehicle_no: json.vehicle_no || vehicleNo,
-              has_rawanna: json.has_rawanna ?? true,
-              active_pass_no: json.active_pass_no || '',
-              routes: routesList,
-              assigned_routes: routesList,
-            };
-          }
+        const res = await apiClient.get<any>(url, { timeout: 3000 });
+        const json = res.data;
+        if (json && (Array.isArray(json.assigned_routes) || Array.isArray(json.routes))) {
+          const routesList = json.assigned_routes || json.routes || [];
+          return {
+            vehicle_no: json.vehicle_no || vehicleNo,
+            has_rawanna: json.has_rawanna ?? true,
+            active_pass_no: json.active_pass_no || '',
+            routes: routesList,
+            assigned_routes: routesList,
+          };
         }
       } catch {}
     }
@@ -402,12 +386,8 @@ export const vtsApi = {
 
     for (const url of urls) {
       try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vehicle_no: vehicleNo, pass_no: passNo }),
-        });
-        if (res.ok) return true;
+        const res = await apiClient.post(url, { vehicle_no: vehicleNo, pass_no: passNo }, { timeout: 4000 });
+        if (res.status === 200 || res.status === 201) return true;
       } catch {}
     }
     return false;
@@ -417,10 +397,8 @@ export const vtsApi = {
   /*
   async getAlerts(): Promise<AlertRecord[]> {
     try {
-      const res = await fetch(`${API_BASE}/alerts`);
-      if (!res.ok) throw new Error('Failed to fetch alerts');
-      const data = await res.json();
-      return data.data || [];
+      const res = await apiClient.get<any>(`${API_BASE}/alerts`);
+      return res.data?.data || [];
     } catch {
       return getFallbackAlerts();
     }
@@ -430,16 +408,12 @@ export const vtsApi = {
   // NEW API: Configured in API_CONFIG.ALERTS
   async getVehicleAlerts(limit: number = 50): Promise<VehicleAlertsApiResponse | null> {
     try {
-      const res = await fetch(API_CONFIG.ALERTS.direct(limit));
-      if (res.ok) {
-        return (await res.json()) as VehicleAlertsApiResponse;
-      }
+      const res = await apiClient.get<VehicleAlertsApiResponse>(API_CONFIG.ALERTS.direct(limit), { timeout: 3500 });
+      if (res.data) return res.data;
     } catch {
       try {
-        const res = await fetch(API_CONFIG.ALERTS.proxy(limit));
-        if (res.ok) {
-          return (await res.json()) as VehicleAlertsApiResponse;
-        }
+        const res = await apiClient.get<VehicleAlertsApiResponse>(API_CONFIG.ALERTS.proxy(limit), { timeout: 3500 });
+        if (res.data) return res.data;
       } catch {}
     }
     return null;
@@ -473,10 +447,8 @@ export const vtsApi = {
 
   async resolveAlert(alertId: string): Promise<boolean> {
     try {
-      const res = await fetch(`${API_BASE}/alerts/${alertId}/resolve`, {
-        method: 'POST',
-      });
-      return res.ok;
+      const res = await apiClient.post(`${API_BASE}/alerts/${alertId}/resolve`, undefined, { timeout: 4000 });
+      return res.status === 200;
     } catch {
       return false;
     }
@@ -484,10 +456,8 @@ export const vtsApi = {
 
   async getFleetStats(): Promise<FleetStats> {
     try {
-      const res = await fetch(`${API_BASE}/stats`);
-      if (!res.ok) throw new Error('Failed to fetch stats');
-      const data = await res.json();
-      return data.data;
+      const res = await apiClient.get<any>(`${API_BASE}/stats`, { timeout: 5000 });
+      return res.data?.data || res.data;
     } catch {
       return {
         total_vehicles: 6,
@@ -504,9 +474,8 @@ export const vtsApi = {
 
   async getGISMetadata(): Promise<GISMetaResponse> {
     try {
-      const res = await fetch(`${API_BASE}/gis/layers`);
-      if (!res.ok) throw new Error('Failed to fetch GIS layers');
-      return await res.json();
+      const res = await apiClient.get<GISMetaResponse>(`${API_BASE}/gis/layers`, { timeout: 5000 });
+      return res.data;
     } catch {
       return getFallbackGISMeta();
     }
@@ -514,22 +483,20 @@ export const vtsApi = {
 
   async getRawPackets(): Promise<string[]> {
     try {
-      const res = await fetch(`${API_BASE}/packets/raw`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return data.packets || [];
+      const res = await apiClient.get<any>(`${API_BASE}/packets/raw`, { timeout: 5000 });
+      return res.data?.packets || [];
     } catch {
       return [];
     }
   },
 
   async triggerSimulatorEvent(vehicleRegNo: string, eventType: string): Promise<Record<string, unknown>> {
-    const res = await fetch(`${API_BASE}/simulator/trigger`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vehicle_reg_no: vehicleRegNo, event_type: eventType }),
-    });
-    return await res.json();
+    const res = await apiClient.post<Record<string, unknown>>(
+      `${API_BASE}/simulator/trigger`,
+      { vehicle_reg_no: vehicleRegNo, event_type: eventType },
+      { timeout: 5000 }
+    );
+    return res.data;
   },
 
   // 12. Trip Reports API for e-Rawanna transit auditing and route visualizer (Image 1, 2 & 3)
@@ -547,23 +514,17 @@ export const vtsApi = {
 
     // 1. Try Go backend directly
     try {
-      const res = await fetch(API_CONFIG.TRIP_REPORTS.direct(qs));
-      if (res.ok) {
-        const json = (await res.json()) as TripReportApiResponse;
-        if (json && Array.isArray(json.trips)) {
-          return json.trips;
-        }
+      const res = await apiClient.get<TripReportApiResponse>(API_CONFIG.TRIP_REPORTS.direct(qs), { timeout: 3500 });
+      if (res.data && Array.isArray(res.data.trips)) {
+        return res.data.trips;
       }
     } catch {}
 
     // 2. Try Vite proxy fallback
     try {
-      const res = await fetch(API_CONFIG.TRIP_REPORTS.proxy(qs));
-      if (res.ok) {
-        const json = (await res.json()) as TripReportApiResponse;
-        if (json && Array.isArray(json.trips)) {
-          return json.trips;
-        }
+      const res = await apiClient.get<TripReportApiResponse>(API_CONFIG.TRIP_REPORTS.proxy(qs), { timeout: 3500 });
+      if (res.data && Array.isArray(res.data.trips)) {
+        return res.data.trips;
       }
     } catch {}
 

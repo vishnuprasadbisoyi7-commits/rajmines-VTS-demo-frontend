@@ -1,4 +1,5 @@
 // ArcGIS World Geocoding & Reverse Geocoding Service for Rajdharaa GIS
+import axios from 'axios';
 import { RAJASTHAN_DISTRICT_CENTERS } from '../data/rajasthanGeoData';
 import { API_CONFIG } from './api-config';
 
@@ -79,17 +80,14 @@ export const gisGeocodeService = {
         locationPayload
       )}&distance=50000&f=json`;
 
-      const response = await fetch(url, {
+      const response = await axios.get<any>(url, {
         headers: {
           Accept: 'application/json',
         },
+        timeout: 8000,
       });
 
-      if (!response.ok) {
-        throw new Error(`ArcGIS reverse geocode failed with HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
       const addr: ArcGISAddress = data.address || {};
 
       const result: ReverseGeocodeResult = {
@@ -164,9 +162,9 @@ export const gisGeocodeService = {
         singleLine
       )}&f=json&maxLocations=6&countryCode=IND`;
 
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
+      const res = await axios.get<any>(url, { timeout: 8000 });
+      if (res.data) {
+        const data = res.data;
         const candidates: Array<{ address: string; location: { x: number; y: number } }> = data.candidates || [];
         return candidates.map((c) => ({
           name: c.address,

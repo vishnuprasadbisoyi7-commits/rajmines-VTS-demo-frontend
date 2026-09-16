@@ -51,8 +51,12 @@ export function useFetch<T>(
         setState({ data, loading: false, error: null });
       }
     } catch (error) {
-      // Ignore errors from aborted requests
-      if (error instanceof DOMException && error.name === "AbortError") {
+      // Ignore errors from aborted requests (native fetch AbortError or Axios CanceledError)
+      if (
+        (error instanceof DOMException && error.name === "AbortError") ||
+        (error as any)?.name === "CanceledError" ||
+        (error as any)?.code === "ERR_CANCELED"
+      ) {
         return;
       }
 

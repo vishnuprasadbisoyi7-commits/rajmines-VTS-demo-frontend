@@ -12,6 +12,7 @@ import {
   mobileApiloginforweb,
   checkDeviceFitmentStatus,
 } from './api-config';
+import { apiClient } from './httpClient';
 import { jwtService } from './jwt.service';
 import { sessionStorageService } from './sessionStorage.service';
 
@@ -109,16 +110,8 @@ class LoginService {
    */
   async loginpagesucess(loginForm: LoginPayload): Promise<LoginResponse> {
     try {
-      const response = await fetch(loginUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(loginForm),
-      });
-
-      const text = await response.text();
-      const parsed = this.parseResponseBody(text);
+      const response = await apiClient.post<any>(loginUrl, loginForm);
+      const parsed = this.parseResponseBody(response.data);
       if (parsed) return parsed;
     } catch (networkError) {
       console.warn('Backend login endpoint unavailable, checking development credentials...', networkError);
@@ -218,17 +211,8 @@ class LoginService {
    */
   async changePassword(data: ChangePasswordPayload): Promise<any> {
     try {
-      const response = await fetch(changePassword, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: jwtService.getAuthorizationHeader(),
-        },
-        body: JSON.stringify(data),
-      });
-
-      const text = await response.text();
-      return this.parseResponseBody(text);
+      const response = await apiClient.post<any>(changePassword, data);
+      return this.parseResponseBody(response.data);
     } catch (networkError) {
       console.warn('Backend changePassword unavailable, simulating local success...', networkError);
       // Simulate successful change in development
@@ -244,48 +228,26 @@ class LoginService {
    * Change user password request with JWT auth
    */
   async changeuserPassword(data: any): Promise<any> {
-    const response = await fetch(changeuserpassword, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: jwtService.getAuthorizationHeader(),
-      },
-      body: JSON.stringify(data),
-    });
-    const text = await response.text();
-    return this.parseResponseBody(text);
+    const response = await apiClient.post<any>(changeuserpassword, data);
+    return this.parseResponseBody(response.data);
   }
 
   /**
    * Mobile API login
    */
   async mobileapilogin(username: string): Promise<any> {
-    const url = new URL(mobileApiloginforweb, window.location.origin);
-    url.searchParams.append('username', username);
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const response = await apiClient.get<any>(mobileApiloginforweb, {
+      params: { username },
     });
-    const text = await response.text();
-    return this.parseResponseBody(text);
+    return this.parseResponseBody(response.data);
   }
 
   /**
    * Check vehicle status
    */
   async checkVehicleStatus(requestData: any): Promise<any> {
-    const response = await fetch(checkDeviceFitmentStatus, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData),
-    });
-    const text = await response.text();
-    return this.parseResponseBody(text);
+    const response = await apiClient.post<any>(checkDeviceFitmentStatus, requestData);
+    return this.parseResponseBody(response.data);
   }
 
   /**

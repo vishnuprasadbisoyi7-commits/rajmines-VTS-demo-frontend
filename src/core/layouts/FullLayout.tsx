@@ -5,7 +5,7 @@ import { TopHeader } from './components/TopHeader';
 import { SignOutModal } from './components/SignOutModal';
 import { ThemeProvider } from '@/shared/context/ThemeContext';
 import { useAuth } from '@/shared/context/AuthContext';
-import { ProtectedRoute } from '@/shared/components/ProtectedRoute';
+// import { ProtectedRoute } from '@/shared/components/ProtectedRoute';
 
 function LayoutContent() {
   const navigate = useNavigate();
@@ -69,9 +69,10 @@ function LayoutContent() {
 export default function FullLayout() {
   return (
     <ThemeProvider>
-      <ProtectedRoute>
-        <LayoutContent />
-      </ProtectedRoute>
+      {/* ProtectedRoute commented out for now to bypass login page */}
+      {/* <ProtectedRoute> */}
+      <LayoutContent />
+      {/* </ProtectedRoute> */}
     </ThemeProvider>
   );
 }

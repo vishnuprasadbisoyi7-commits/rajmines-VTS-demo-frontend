@@ -138,9 +138,9 @@ export const LoginView: React.FC = () => {
         // Check if password change is required (first-time user or expired default password)
         const isPwChangeReq = Boolean(
           checkPassword &&
-            (checkPassword === true ||
-              checkPassword === 'true' ||
-              (typeof checkPassword === 'string' && checkPassword.trim().length > 0))
+          (checkPassword === true ||
+            checkPassword === 'true' ||
+            (typeof checkPassword === 'string' && checkPassword.trim().length > 0))
         );
 
         if (isPwChangeReq) {
@@ -236,7 +236,7 @@ export const LoginView: React.FC = () => {
             </div>
             <div className="separator-line"></div>
             <div className="system-title">
-              <span className="system-title-text">Login</span>
+              <span className="system-title-text">VTS Login</span>
             </div>
           </div>
 

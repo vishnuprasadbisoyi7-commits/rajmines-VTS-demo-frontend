@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import type { VehicleAlertApiItem, VehicleAlertsApiResponse } from '@/shared/types/vts.types';
-import { API_CONFIG } from '@/shared/services/api-config';
+import type { VehicleAlertApiItem } from '@/shared/types/vts.types';
+import { vtsApi } from '@/shared/services/vtsApi';
 import {
   ChevronDown,
   Search,
@@ -79,22 +79,13 @@ export const AlertsHubView: React.FC = () => {
   const fetchAlerts = useCallback(async (isManual: boolean = false) => {
     if (isManual) setIsRefreshing(true);
     try {
-      let res: Response | null = null;
-      try {
-        res = await fetch(API_CONFIG.ALERTS.direct(50));
-      } catch {
-        res = await fetch(API_CONFIG.ALERTS.proxy(50));
-      }
-
-      if (res && res.ok) {
-        const data = (await res.json()) as VehicleAlertsApiResponse;
-        if (data && Array.isArray(data.alerts)) {
-          setAlerts(data.alerts);
-          setTotalCount(data.count || data.alerts.length);
-          // setIsLiveConnected(true);
-          // setLastSyncTime(new Date().toLocaleTimeString());
-          return;
-        }
+      const data = await vtsApi.getVehicleAlerts(50);
+      if (data && Array.isArray(data.alerts)) {
+        setAlerts(data.alerts);
+        setTotalCount(data.count || data.alerts.length);
+        // setIsLiveConnected(true);
+        // setLastSyncTime(new Date().toLocaleTimeString());
+        return;
       }
     } catch {
       // setIsLiveConnected(false);
