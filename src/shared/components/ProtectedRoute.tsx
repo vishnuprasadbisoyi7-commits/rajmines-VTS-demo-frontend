@@ -1,18 +1,15 @@
 import React from 'react';
-import { Outlet } from 'react-router';
-// import { Navigate, useLocation } from 'react-router';
-// import { useAuth } from '../context/AuthContext';
+import { Navigate, useLocation, Outlet } from 'react-router';
+import { useAuth } from '../context/AuthContext';
 
 interface ProtectedRouteProps {
   children?: React.ReactNode;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  // const { isAuthenticated, isLoading, passwordChangeRequired } = useAuth();
-  // const location = useLocation();
+  const { isAuthenticated, isLoading, passwordChangeRequired } = useAuth();
+  const location = useLocation();
 
-  /*
-  // JWT Authentication Guard - Temporarily commented out to bypass login page until backend JWT is implemented
   if (isLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#071a2e] text-slate-100">
@@ -32,7 +29,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   if (passwordChangeRequired && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
   }
-  */
 
   return children ? <>{children}</> : <Outlet />;
 };

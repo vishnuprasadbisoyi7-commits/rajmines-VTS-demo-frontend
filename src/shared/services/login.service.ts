@@ -113,7 +113,14 @@ class LoginService {
       const response = await apiClient.post<any>(loginUrl, loginForm);
       const parsed = this.parseResponseBody(response.data);
       if (parsed) return parsed;
-    } catch (networkError) {
+    } catch (networkError: any) {
+      if (networkError?.status === 401 || networkError?.originalError?.response?.status === 401) {
+        throw {
+          status: 401,
+          message: networkError?.message || networkError?.data?.message || 'Invalid username or password.',
+          error: { message: networkError?.message || 'Invalid username or password.' },
+        };
+      }
       console.warn('Backend login endpoint unavailable, checking development credentials...', networkError);
     }
 
