@@ -1,4 +1,5 @@
-import { useRoutes } from 'react-router';
+import { useRoutes, Navigate } from 'react-router';
+import { AuthenticateRoutes } from '@/features/Authenticate/routes';
 import { DashboardRoutes } from '@/features/Dashboard/routes';
 import { LiveTrackingRoutes } from '@/features/LiveTracking/routes';
 import { ListViewRoutes } from '@/features/ListView/routes';
@@ -9,6 +10,7 @@ import { GeofenceRoutes } from '@/features/Geofence/routes';
 import { AIS140Routes } from '@/features/AIS140Terminal/routes';
 
 export const appRoutes = [
+  ...AuthenticateRoutes,
   ...DashboardRoutes,
   ...LiveTrackingRoutes,
   ...ListViewRoutes,
@@ -17,6 +19,14 @@ export const appRoutes = [
   ...ERavannaRoutes,
   ...GeofenceRoutes,
   ...AIS140Routes,
+  {
+    path: '/auth',
+    element: <Navigate to="/login" replace />,
+  },
+  {
+    path: '/sso-control-board',
+    element: <Navigate to="/dashboard" replace />,
+  },
 ];
 
 export const AppRouter = () => {

@@ -14,6 +14,7 @@ import type {
   TripReportFilterParams,
   TripReportApiResponse,
   ActiveERawannaResponse,
+  VehicleAssignedRoutesResponse,
 } from '../types/vts.types';
 
 const SPRING_TELEMETRY_API_BASE = 'http://localhost:8082/vts/api/telemetry-view';
@@ -351,12 +352,15 @@ export const vtsApi = {
     }
   },
 
-  // API 2: Query Backend for Vehicle's Active e-Rawanna & Predefined Corridor
-  async getActiveERawanna(vehicleNo: string): Promise<ActiveERawannaResponse> {
+  // API 2: Query Backend for Vehicle's Active e-Rawanna & Predefined Corridor (or specific pass)
+  async getActiveERawanna(vehicleNo: string, passNo?: string): Promise<ActiveERawannaResponse> {
+    const query = passNo
+      ? `vehicleNo=${encodeURIComponent(vehicleNo)}&passNo=${encodeURIComponent(passNo)}`
+      : `vehicleNo=${encodeURIComponent(vehicleNo)}`;
     const urls = [
-      `http://localhost:8082/vts/api/vehicle/erawanna/active?vehicleNo=${encodeURIComponent(vehicleNo)}`,
-      `/vts/api/vehicle/erawanna/active?vehicleNo=${encodeURIComponent(vehicleNo)}`,
-      `http://localhost:8082/vts/api/erawanna/active?vehicleNo=${encodeURIComponent(vehicleNo)}`,
+      `http://localhost:8082/vts/api/vehicle/erawanna/active?${query}`,
+      `/vts/api/vehicle/erawanna/active?${query}`,
+      `http://localhost:8082/vts/api/erawanna/active?${query}`,
     ];
 
     for (const url of urls) {
@@ -371,6 +375,56 @@ export const vtsApi = {
       } catch {}
     }
     return { has_rawanna: false, vehicle_no: vehicleNo, message: 'No active e-Rawanna generated for vehicle' };
+  },
+
+  // API 2b: Query All Assigned Routes/Trips for a Single Vehicle
+  async getVehicleAssignedRoutes(vehicleNo: string): Promise<VehicleAssignedRoutesResponse> {
+    const urls = [
+      `http://localhost:8082/vts/api/vehicle/erawanna/routes?vehicleNo=${encodeURIComponent(vehicleNo)}`,
+      `/vts/api/vehicle/erawanna/routes?vehicleNo=${encodeURIComponent(vehicleNo)}`,
+      `http://localhost:8082/vts/api/erawanna/routes?vehicleNo=${encodeURIComponent(vehicleNo)}`,
+    ];
+
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && (Array.isArray(json.assigned_routes) || Array.isArray(json.routes))) {
+            const routesList = json.assigned_routes || json.routes || [];
+            return {
+              vehicle_no: json.vehicle_no || vehicleNo,
+              has_rawanna: json.has_rawanna ?? true,
+              active_pass_no: json.active_pass_no || '',
+              routes: routesList,
+              assigned_routes: routesList,
+            };
+          }
+        }
+      } catch {}
+    }
+    return { vehicle_no: vehicleNo, active_pass_no: '', has_rawanna: false, routes: [], assigned_routes: [] };
+  },
+
+  // API 2c: Programmatically Switch Active Trip for a Vehicle
+  async switchVehicleActiveTrip(vehicleNo: string, passNo: string): Promise<boolean> {
+    const urls = [
+      'http://localhost:8082/vts/api/vehicle/erawanna/switch-trip',
+      '/vts/api/vehicle/erawanna/switch-trip',
+      'http://localhost:8082/vts/api/erawanna/switch-trip',
+    ];
+
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vehicle_no: vehicleNo, pass_no: passNo }),
+        });
+        if (res.ok) return true;
+      } catch {}
+    }
+    return false;
   },
 
   // OLD API: Commented out as requested

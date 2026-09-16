@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router';
+import { Outlet, useNavigate } from 'react-router';
 import { Sidebar } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
 import { SignOutModal } from './components/SignOutModal';
-// import { SimulatorHUD } from '@/features/SimulatorControl/components/SimulatorHUD';
 import { ThemeProvider } from '@/shared/context/ThemeContext';
+import { useAuth } from '@/shared/context/AuthContext';
+import { ProtectedRoute } from '@/shared/components/ProtectedRoute';
 
 function LayoutContent() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     const saved = localStorage.getItem('rajmines-sidebar-collapsed');
@@ -14,14 +18,12 @@ function LayoutContent() {
   });
 
   const [signOutOpen, setSignOutOpen] = useState(false);
-  const [signOutToast, setSignOutToast] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('rajmines-sidebar-collapsed', String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
   const handleToggleSidebar = () => {
-    // If mobile, toggle mobile drawer; if desktop, toggle collapse
     if (window.innerWidth < 1024) {
       setSidebarMobileOpen((prev) => !prev);
     } else {
@@ -31,10 +33,8 @@ function LayoutContent() {
 
   const handleSignOutConfirm = () => {
     setSignOutOpen(false);
-    setSignOutToast(true);
-    setTimeout(() => {
-      setSignOutToast(false);
-    }, 4000);
+    logout();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -62,17 +62,6 @@ function LayoutContent() {
         onClose={() => setSignOutOpen(false)}
         onConfirm={handleSignOutConfirm}
       />
-
-      {/* Toast Notification */}
-      {signOutToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200 text-xs">
-          <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-          <span>Signed out successfully. (JWT authentication will be connected soon)</span>
-        </div>
-      )}
-
-      {/* Simulator HUD overlay - Commented out for now */}
-      {/* <SimulatorHUD /> */}
     </div>
   );
 }
@@ -80,7 +69,9 @@ function LayoutContent() {
 export default function FullLayout() {
   return (
     <ThemeProvider>
-      <LayoutContent />
+      <ProtectedRoute>
+        <LayoutContent />
+      </ProtectedRoute>
     </ThemeProvider>
   );
 }

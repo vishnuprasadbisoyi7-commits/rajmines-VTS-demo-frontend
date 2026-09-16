@@ -40,7 +40,7 @@ export const SignOutModal: React.FC<SignOutModalProps> = ({ isOpen, onClose, onC
           <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-2.5 text-xs text-amber-800">
             <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" />
             <span>
-              Authentication will be connected to JWT upon backend integration.
+              Your encrypted session and active JWT security token will be terminated securely.
             </span>
           </div>
         </div>

@@ -163,6 +163,15 @@ export const ajmerCorridorPlanned: [number, number][] = [
   [26.45438, 74.68236], [26.45026, 74.64344]
 ];
 
+// Udaipur to Chittorgarh Mining Transit Corridor (from RJ27AB1021_Udaipur_to_Chittorgarh_simulation.xlsx)
+export const udaipurCorridorPlanned: [number, number][] = [
+  [24.58537, 73.71250], [24.54201, 73.72504], [24.49812, 73.73890], [24.45012, 73.75120],
+  [24.39801, 73.76540], [24.34120, 73.77430], [24.29012, 73.78210], [24.24057, 73.79116],
+  [24.20015, 73.81540], [24.16840, 73.84210], [24.13560, 73.87900], [24.10890, 73.91240],
+  [24.08450, 73.94500], [24.06780, 73.97200], [24.05340, 73.99450], [24.04560, 74.00890],
+  [24.04107, 74.01850], [24.04107, 74.01850]
+];
+
 // Stable corridor cache so planned route and landmarks A, B, C remain permanently fixed during tracking
 interface CorridorDef {
   pointA: [number, number];
@@ -269,9 +278,62 @@ export function getRawannaTransitForVehicle(
   ];
 
   // 3. Known active e-Rawanna corridors matching authentic simulation routes
-  let corridor = vehicleCorridorCache.get(regKey);
+  // Cache key includes active e-Rawanna pass to support multi-route trip switching
+  const passKey = vehicle.active_e_ravanna || 'DEFAULT';
+  const cacheLookupKey = `${regKey}_${passKey}`;
+  let corridor = vehicleCorridorCache.get(cacheLookupKey);
+
+  /* [Legacy Single-Route Corridor Resolution - Commented out as requested]
+  let legacyCorridor = vehicleCorridorCache.get(regKey);
+  if (!legacyCorridor) {
+    if (regKey.includes('2009') || regKey.includes('GL2009')) {
+      legacyCorridor = {
+        pointA: jaipurCorridorPlanned[0],
+        pointB: jaipurCorridorPlanned[11],
+        pointC: jaipurCorridorPlanned[jaipurCorridorPlanned.length - 1],
+        plannedRoute: jaipurCorridorPlanned,
+      };
+    }
+  }
+  */
+
   if (!corridor) {
-    if (
+    const rawannaPass = (vehicle.active_e_ravanna || '').toUpperCase().trim();
+
+    // Check specific assigned multi-route trip pass first:
+    if (rawannaPass.includes('2009-T1') || rawannaPass.includes('2011-T2')) {
+      // Jaipur Bassi Corridor: Bassi Mining Lease (A) -> NH 21 Weighbridge (B) -> Jaipur Hub (C)
+      corridor = {
+        pointA: jaipurCorridorPlanned[0],
+        pointB: jaipurCorridorPlanned[11],
+        pointC: jaipurCorridorPlanned[jaipurCorridorPlanned.length - 1],
+        plannedRoute: jaipurCorridorPlanned,
+      };
+    } else if (rawannaPass.includes('2009-T2') || rawannaPass.includes('2011-T1')) {
+      // Jaipur-Ajmer Highway Corridor: Jaipur Mining Zone (A) -> NH 48 Bagru (B) -> Ajmer Hub (C)
+      corridor = {
+        pointA: ajmerCorridorPlanned[0],
+        pointB: ajmerCorridorPlanned[4],
+        pointC: ajmerCorridorPlanned[ajmerCorridorPlanned.length - 1],
+        plannedRoute: ajmerCorridorPlanned,
+      };
+    } else if (rawannaPass.includes('2010-T1')) {
+      // Abu Road / Sirohi Corridor: Pindwara Mining Lease (A) -> NH 27 Weighbridge (B) -> Abu Road Hub (C)
+      corridor = {
+        pointA: abuRoadCorridorPlanned[0],
+        pointB: abuRoadCorridorPlanned[8],
+        pointC: abuRoadCorridorPlanned[abuRoadCorridorPlanned.length - 1],
+        plannedRoute: abuRoadCorridorPlanned,
+      };
+    } else if (rawannaPass.includes('2010-T2')) {
+      // Udaipur-Chittorgarh Corridor: Udaipur Marble Quarry (A) -> NH 48 Salumbar (B) -> Chittorgarh Delivery Hub (C)
+      corridor = {
+        pointA: udaipurCorridorPlanned[0],
+        pointB: udaipurCorridorPlanned[7],
+        pointC: udaipurCorridorPlanned[udaipurCorridorPlanned.length - 1],
+        plannedRoute: udaipurCorridorPlanned,
+      };
+    } else if (
       regKey.includes('2009') ||
       regKey.includes('GL2009') ||
       regKey.includes('2003') ||
@@ -279,14 +341,13 @@ export function getRawannaTransitForVehicle(
       regKey.includes('2006') ||
       regKey.includes('GL2006')
     ) {
-      // Jaipur Southwest Transit Corridor: Bassi Mining Lease (A) -> NH 21 Weighbridge (B) -> Jaipur Hub (C)
+      // Default Trip for 2009: Jaipur Southwest Transit Corridor
       corridor = {
         pointA: jaipurCorridorPlanned[0],
         pointB: jaipurCorridorPlanned[11],
         pointC: jaipurCorridorPlanned[jaipurCorridorPlanned.length - 1],
         plannedRoute: jaipurCorridorPlanned,
       };
-      vehicleCorridorCache.set(regKey, corridor);
     } else if (
       regKey.includes('2010') ||
       regKey.includes('AA2010') ||
@@ -295,28 +356,26 @@ export function getRawannaTransitForVehicle(
       regKey.includes('2007') ||
       regKey.includes('AA2007')
     ) {
-      // Abu Road / Sirohi Corridor: Pindwara Mining Lease (A) -> NH 27 Weighbridge (B) -> Abu Road Hub (C)
+      // Default Trip for 2010: Abu Road / Sirohi Corridor
       corridor = {
         pointA: abuRoadCorridorPlanned[0],
         pointB: abuRoadCorridorPlanned[8],
         pointC: abuRoadCorridorPlanned[abuRoadCorridorPlanned.length - 1],
         plannedRoute: abuRoadCorridorPlanned,
       };
-      vehicleCorridorCache.set(regKey, corridor);
     } else if (
       regKey.includes('2011') ||
       regKey.includes('AA2011') ||
       regKey.includes('2008') ||
       regKey.includes('AA2008')
     ) {
-      // Jaipur-Ajmer Highway Corridor: Jaipur Mining Zone (A) -> NH 48 Bagru (B) -> Ajmer Hub (C)
+      // Default Trip for 2011: Jaipur-Ajmer Highway Corridor
       corridor = {
         pointA: ajmerCorridorPlanned[0],
         pointB: ajmerCorridorPlanned[4],
         pointC: ajmerCorridorPlanned[ajmerCorridorPlanned.length - 1],
         plannedRoute: ajmerCorridorPlanned,
       };
-      vehicleCorridorCache.set(regKey, corridor);
     } else if (vehicle.active_e_ravanna && vehicle.active_e_ravanna !== 'N/A') {
       // Regional automatic fallback for any other fleet vehicle
       if (currPos[0] < 25.5 && currPos[1] < 73.5) {
@@ -341,11 +400,12 @@ export function getRawannaTransitForVehicle(
           plannedRoute: jaipurCorridorPlanned,
         };
       }
-      vehicleCorridorCache.set(regKey, corridor);
     } else {
       // No active e-Rawanna registered for this vehicle -> Transit tracking not permitted
       return null;
     }
+
+    vehicleCorridorCache.set(cacheLookupKey, corridor);
   }
 
   const rawHistoryCoords: [number, number][] =

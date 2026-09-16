@@ -45,6 +45,55 @@ export interface ActiveERawannaResponse {
   message?: string;
 }
 
+export interface VehicleAssignedRouteOption {
+  pass_no: string;
+  trip_name?: string;
+  name?: string;
+  corridor?: string;
+  mineral_name: string;
+  tonnage: string;
+  status?: string;
+  is_active?: boolean;
+  driver_name?: string;
+  driver_phone?: string;
+  weighbridge_code?: string;
+  point_a_name?: string;
+  point_b_name?: string;
+  point_c_name?: string;
+  point_c_address?: string;
+  pointA?: {
+    label: string;
+    name: string;
+    subtext?: string;
+    coords: [number, number];
+    type: string;
+  };
+  pointB?: {
+    label: string;
+    name: string;
+    subtext?: string;
+    coords: [number, number];
+    type: string;
+  };
+  pointC?: {
+    label: string;
+    name: string;
+    subtext?: string;
+    coords: [number, number];
+    type: string;
+  };
+  planned_route: [number, number][];
+  route_coordinates: [number, number][];
+}
+
+export interface VehicleAssignedRoutesResponse {
+  vehicle_no: string;
+  active_pass_no: string;
+  has_rawanna: boolean;
+  routes: VehicleAssignedRouteOption[];
+  assigned_routes: VehicleAssignedRouteOption[];
+}
+
 export interface VehicleTelemetryViewDto {
   id?: number;
   imei: string;
@@ -310,6 +359,3 @@ export interface TripReportApiResponse {
   count: number;
   trips: TripReportRecord[];
 }
-
-
-

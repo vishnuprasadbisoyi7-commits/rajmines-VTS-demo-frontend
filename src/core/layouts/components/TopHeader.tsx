@@ -3,6 +3,7 @@ import { useLocation } from 'react-router';
 import { PanelLeft, Sun, Moon } from 'lucide-react';
 import { ROUTES } from '@/shared/constants/app.constants';
 import { useTheme } from '@/shared/context/ThemeContext';
+import { useAuth } from '@/shared/context/AuthContext';
 
 interface TopHeaderProps {
   onToggleSidebar: () => void;
@@ -11,6 +12,7 @@ interface TopHeaderProps {
 export const TopHeader: React.FC<TopHeaderProps> = ({ onToggleSidebar }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
 
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
@@ -60,8 +62,22 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onToggleSidebar }) => {
         </h2>
       </div>
 
-      {/* Right: Theme Toggle */}
-      <div className="flex items-center gap-2">
+      {/* Right: User Pill & Theme Toggle */}
+      <div className="flex items-center gap-3">
+        {user && (
+          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-slate-100 dark:bg-slate-800/60 rounded-full border border-slate-200/80 dark:border-slate-700/80 text-xs">
+            <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-[10px]">
+              {(user.displayName || user.userName || 'U').charAt(0).toUpperCase()}
+            </div>
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              {user.displayName || user.userName}
+            </span>
+            <span className="px-1.5 py-0.2 bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 font-bold text-[9px] rounded-full uppercase tracking-wider">
+              {user.role || 'USER'}
+            </span>
+          </div>
+        )}
+
         <button
           onClick={toggleTheme}
           className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-amber-400 hover:text-slate-900 dark:hover:text-amber-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer flex items-center gap-1.5"
