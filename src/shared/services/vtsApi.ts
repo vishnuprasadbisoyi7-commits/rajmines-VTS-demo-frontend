@@ -16,10 +16,12 @@ import type {
   ActiveERawannaResponse,
   VehicleAssignedRoutesResponse,
 } from '../types/vts.types';
-
-const SPRING_TELEMETRY_API_BASE = 'http://localhost:8082/vts/api/telemetry-view';
-const PROXY_TELEMETRY_API_BASE = '/vts/api/telemetry-view';
-const API_BASE = 'http://localhost:8080/api/v1';
+import {
+  SPRING_TELEMETRY_API_BASE,
+  PROXY_TELEMETRY_API_BASE,
+  API_BASE,
+  API_CONFIG,
+} from './api-config';
 
 async function fetchTelemetry<T>(endpoint: string): Promise<T | null> {
   // Try direct backend first
@@ -229,17 +231,16 @@ export const vtsApi = {
     });
   },
 
-  // 4. Live Vehicles API: GET http://localhost:8082/vts/api/vehicle/live?activeOnly=true
+  // 4. Live Vehicles API: Configured in API_CONFIG.VEHICLE
   async getLiveVehicles(activeOnly: boolean = true): Promise<LiveVehicleApiResponse | null> {
-    const query = activeOnly ? '?activeOnly=true' : '';
     try {
-      const res = await fetch(`http://localhost:8082/vts/api/vehicle/live${query}`);
+      const res = await fetch(API_CONFIG.VEHICLE.liveDirect(activeOnly));
       if (res.ok) {
         return (await res.json()) as LiveVehicleApiResponse;
       }
     } catch {
       try {
-        const res = await fetch(`/vts/api/vehicle/live${query}`);
+        const res = await fetch(API_CONFIG.VEHICLE.liveProxy(activeOnly));
         if (res.ok) {
           return (await res.json()) as LiveVehicleApiResponse;
         }
@@ -354,14 +355,7 @@ export const vtsApi = {
 
   // API 2: Query Backend for Vehicle's Active e-Rawanna & Predefined Corridor (or specific pass)
   async getActiveERawanna(vehicleNo: string, passNo?: string): Promise<ActiveERawannaResponse> {
-    const query = passNo
-      ? `vehicleNo=${encodeURIComponent(vehicleNo)}&passNo=${encodeURIComponent(passNo)}`
-      : `vehicleNo=${encodeURIComponent(vehicleNo)}`;
-    const urls = [
-      `http://localhost:8082/vts/api/vehicle/erawanna/active?${query}`,
-      `/vts/api/vehicle/erawanna/active?${query}`,
-      `http://localhost:8082/vts/api/erawanna/active?${query}`,
-    ];
+    const urls = API_CONFIG.ERAWANNA.activeCandidates(vehicleNo, passNo);
 
     for (const url of urls) {
       try {
@@ -379,11 +373,7 @@ export const vtsApi = {
 
   // API 2b: Query All Assigned Routes/Trips for a Single Vehicle
   async getVehicleAssignedRoutes(vehicleNo: string): Promise<VehicleAssignedRoutesResponse> {
-    const urls = [
-      `http://localhost:8082/vts/api/vehicle/erawanna/routes?vehicleNo=${encodeURIComponent(vehicleNo)}`,
-      `/vts/api/vehicle/erawanna/routes?vehicleNo=${encodeURIComponent(vehicleNo)}`,
-      `http://localhost:8082/vts/api/erawanna/routes?vehicleNo=${encodeURIComponent(vehicleNo)}`,
-    ];
+    const urls = API_CONFIG.ERAWANNA.routesCandidates(vehicleNo);
 
     for (const url of urls) {
       try {
@@ -408,11 +398,7 @@ export const vtsApi = {
 
   // API 2c: Programmatically Switch Active Trip for a Vehicle
   async switchVehicleActiveTrip(vehicleNo: string, passNo: string): Promise<boolean> {
-    const urls = [
-      'http://localhost:8082/vts/api/vehicle/erawanna/switch-trip',
-      '/vts/api/vehicle/erawanna/switch-trip',
-      'http://localhost:8082/vts/api/erawanna/switch-trip',
-    ];
+    const urls = API_CONFIG.ERAWANNA.switchTripCandidates();
 
     for (const url of urls) {
       try {
@@ -441,16 +427,16 @@ export const vtsApi = {
   },
   */
 
-  // NEW API: GET http://localhost:8082/vts/api/vehicle/alerts?limit=50
+  // NEW API: Configured in API_CONFIG.ALERTS
   async getVehicleAlerts(limit: number = 50): Promise<VehicleAlertsApiResponse | null> {
     try {
-      const res = await fetch(`http://localhost:8082/vts/api/vehicle/alerts?limit=${limit}`);
+      const res = await fetch(API_CONFIG.ALERTS.direct(limit));
       if (res.ok) {
         return (await res.json()) as VehicleAlertsApiResponse;
       }
     } catch {
       try {
-        const res = await fetch(`/vts/api/vehicle/alerts?limit=${limit}`);
+        const res = await fetch(API_CONFIG.ALERTS.proxy(limit));
         if (res.ok) {
           return (await res.json()) as VehicleAlertsApiResponse;
         }
@@ -561,7 +547,7 @@ export const vtsApi = {
 
     // 1. Try Go backend directly
     try {
-      const res = await fetch(`http://localhost:8082/vts/api/vehicle/trip-reports${qs}`);
+      const res = await fetch(API_CONFIG.TRIP_REPORTS.direct(qs));
       if (res.ok) {
         const json = (await res.json()) as TripReportApiResponse;
         if (json && Array.isArray(json.trips)) {
@@ -572,7 +558,7 @@ export const vtsApi = {
 
     // 2. Try Vite proxy fallback
     try {
-      const res = await fetch(`/vts/api/vehicle/trip-reports${qs}`);
+      const res = await fetch(API_CONFIG.TRIP_REPORTS.proxy(qs));
       if (res.ok) {
         const json = (await res.json()) as TripReportApiResponse;
         if (json && Array.isArray(json.trips)) {
@@ -1468,7 +1454,7 @@ function getFallbackAlerts(): AlertRecord[] {
 function getFallbackGISMeta(): GISMetaResponse {
   return {
     provider: 'Rajdharaa - Department of Information Technology & Communication (DoIT&C)',
-    portal_url: 'https://gis.rajasthan.gov.in/',
+    portal_url: API_CONFIG.GIS.portalUrl,
     state_center: [26.578, 74.862],
     default_zoom: 7,
     layers: [
@@ -1476,7 +1462,7 @@ function getFallbackGISMeta(): GISMetaResponse {
         id: 'esri-street',
         name: 'Esri World Street Map',
         type: 'tile',
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        url: API_CONFIG.GIS.tileServers.arcgisStreet,
         attribution: 'Esri | TomTom | Garmin | METI/NASA | USGS',
         is_default: true,
         max_zoom: 19,
@@ -1486,7 +1472,7 @@ function getFallbackGISMeta(): GISMetaResponse {
         id: 'osm-standard',
         name: 'OpenStreetMap Standard',
         type: 'tile',
-        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        url: API_CONFIG.GIS.tileServers.osm,
         attribution: '© OpenStreetMap contributors',
         is_default: false,
         max_zoom: 19,
@@ -1496,7 +1482,7 @@ function getFallbackGISMeta(): GISMetaResponse {
         id: 'rajdharaa-satellite-hybrid',
         name: 'Rajdharaa Satellite Hybrid (GIS Rajasthan)',
         type: 'tile',
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        url: API_CONFIG.GIS.tileServers.arcgisSatellite,
         attribution: '© Rajdharaa GIS / DoIT&C Govt. of Rajasthan © Esri World Imagery',
         is_default: false,
         max_zoom: 19,
@@ -1506,7 +1492,7 @@ function getFallbackGISMeta(): GISMetaResponse {
         id: 'rajdharaa-base-carto',
         name: 'Rajdharaa Topographic / Carto Base',
         type: 'tile',
-        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        url: API_CONFIG.GIS.tileServers.cartoVoyager,
         attribution: '© Rajdharaa State Spatial Data Infrastructure © CARTO',
         is_default: false,
         max_zoom: 19,
@@ -1516,7 +1502,7 @@ function getFallbackGISMeta(): GISMetaResponse {
         id: 'rajdharaa-dark-night',
         name: 'Rajdharaa Night Surveillance Map',
         type: 'tile',
-        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        url: API_CONFIG.GIS.tileServers.cartoDark,
         attribution: '© Rajdharaa Mining Surveillance Network © CARTO Dark',
         is_default: false,
         max_zoom: 19,

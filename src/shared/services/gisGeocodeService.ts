@@ -1,5 +1,6 @@
 // ArcGIS World Geocoding & Reverse Geocoding Service for Rajdharaa GIS
 import { RAJASTHAN_DISTRICT_CENTERS } from '../data/rajasthanGeoData';
+import { API_CONFIG } from './api-config';
 
 export interface ArcGISAddress {
   Match_addr?: string;
@@ -74,7 +75,7 @@ export const gisGeocodeService = {
         spatialReference: { wkid: 4326 },
       });
 
-      const url = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?location=${encodeURIComponent(
+      const url = `${API_CONFIG.GIS.arcgisReverseGeocode}?location=${encodeURIComponent(
         locationPayload
       )}&distance=50000&f=json`;
 
@@ -159,7 +160,7 @@ export const gisGeocodeService = {
     // 4. Query ArcGIS Candidate Geocoder with Rajasthan bias
     try {
       const singleLine = `${query}, Rajasthan, India`;
-      const url = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?SingleLine=${encodeURIComponent(
+      const url = `${API_CONFIG.GIS.arcgisFindAddress}?SingleLine=${encodeURIComponent(
         singleLine
       )}&f=json&maxLocations=6&countryCode=IND`;
 

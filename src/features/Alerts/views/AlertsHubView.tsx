@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import type { VehicleAlertApiItem, VehicleAlertsApiResponse } from '@/shared/types/vts.types';
+import { API_CONFIG } from '@/shared/services/api-config';
 import {
   ChevronDown,
   Search,
@@ -80,9 +81,9 @@ export const AlertsHubView: React.FC = () => {
     try {
       let res: Response | null = null;
       try {
-        res = await fetch('http://localhost:8082/vts/api/vehicle/alerts?limit=50');
+        res = await fetch(API_CONFIG.ALERTS.direct(50));
       } catch {
-        res = await fetch('/vts/api/vehicle/alerts?limit=50');
+        res = await fetch(API_CONFIG.ALERTS.proxy(50));
       }
 
       if (res && res.ok) {

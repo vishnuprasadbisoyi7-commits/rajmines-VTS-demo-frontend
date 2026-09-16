@@ -11,8 +11,7 @@ import {
 } from 'lucide-react';
 import type { VehicleTelemetryViewDto, LiveVehicleApiItem } from '@/shared/types/vts.types';
 import { vtsApi } from '@/shared/services/vtsApi';
-// OLD API Hook - Commented out as requested:
-// import { useLiveTelemetry } from '@/shared/hooks/useLiveTelemetry';
+import { API_CONFIG } from '@/shared/services/api-config';
 import { ROUTES } from '@/shared/constants/app.constants';
 
 interface ColumnDef {
@@ -72,13 +71,13 @@ export const ListView: React.FC = () => {
 
   const fetchLiveVehicles = useCallback(async () => {
     try {
-      // GET http://localhost:8082/vts/api/vehicle/live?activeOnly=true
+      // GET live vehicles with activeOnly filter
       let res: Response | null = null;
       try {
-        res = await fetch('http://localhost:8082/vts/api/vehicle/live?activeOnly=true');
+        res = await fetch(API_CONFIG.VEHICLE.liveDirect(true));
       } catch {
         // Fallback to Vite proxy
-        res = await fetch('/vts/api/vehicle/live?activeOnly=true');
+        res = await fetch(API_CONFIG.VEHICLE.liveProxy(true));
       }
 
       if (res && res.ok) {
@@ -350,7 +349,7 @@ export const ListView: React.FC = () => {
                 <td colSpan={13} className="text-center py-12 text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Radio className="w-6 h-6 text-cyan-600 animate-pulse" />
-                    <span>Loading live vehicles from API (http://localhost:8082/vts/api/vehicle/live)...</span>
+                    <span>Loading live vehicles from API ({API_CONFIG.VEHICLE.liveProxy(true)})...</span>
                   </div>
                 </td>
               </tr>
