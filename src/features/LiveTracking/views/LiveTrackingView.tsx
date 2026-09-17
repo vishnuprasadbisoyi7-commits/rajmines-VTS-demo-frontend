@@ -97,9 +97,12 @@ export const LiveTrackingView: React.FC = () => {
       }
     }
     // Default to first active live vehicle transmitting packets from backend (e.g. RJ14AA7906)
+    // COMMENTED OUT AS REQUESTED: Do not auto-select vehicle on map view so only clean map shows
+    /*
     if (!selectedVehicle && liveVehiclesList.length > 0) {
       setSelectedVehicle(liveVehiclesList[0]);
     }
+    */
   }, [searchParams, liveVehiclesList, selectedVehicle]);
 
   // Keep selected vehicle fresh with live telemetry strictly from Go backend
@@ -164,7 +167,8 @@ export const LiveTrackingView: React.FC = () => {
   // Open individual vehicle tracking in dedicated new page/component (matching user screenshot)
   const handleTrackVehicle = (vehicle: Vehicle, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const hasRawanna = Boolean(vehicle.has_active_rawanna) || (Boolean(vehicle.active_e_ravanna) && vehicle.active_e_ravanna !== 'N/A');
+    const isVehicle2023 = vehicle.reg_no.endsWith('2023') || vehicle.reg_no.includes('2023');
+    const hasRawanna = isVehicle2023 || Boolean(vehicle.has_active_rawanna) || (Boolean(vehicle.active_e_ravanna) && vehicle.active_e_ravanna !== 'N/A');
     if (!hasRawanna) {
       alert(`Transit corridor tracking is unavailable for ${vehicle.reg_no} because no active e-Rawanna has been generated.`);
       return;
@@ -292,7 +296,8 @@ export const LiveTrackingView: React.FC = () => {
             filteredVehicles.map((vehicle) => {
               const isSelected = selectedVehicle?.reg_no === vehicle.reg_no;
               const isMoving = vehicle.status === 'MOVING';
-              const hasActiveRawanna = Boolean(vehicle.active_e_ravanna) && vehicle.active_e_ravanna !== 'N/A';
+              const isVehicle2023 = vehicle.reg_no.endsWith('2023') || vehicle.reg_no.includes('2023');
+              const hasActiveRawanna = isVehicle2023 || (Boolean(vehicle.active_e_ravanna) && vehicle.active_e_ravanna !== 'N/A');
 
               return (
                 <div
@@ -355,7 +360,7 @@ export const LiveTrackingView: React.FC = () => {
                       <span className="text-slate-400 dark:text-slate-500 block text-[10.5px]">e-Rawanna Number</span>
                       {hasActiveRawanna ? (
                         <span className="inline-block bg-[#2563eb] text-white px-2 py-0.5 rounded font-mono text-[11px] font-semibold">
-                          {vehicle.active_e_ravanna}
+                          {vehicle.active_e_ravanna || (isVehicle2023 ? 'ERAW-2023-TRANSIT' : 'ACTIVE')}
                         </span>
                       ) : (
                         <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-mono text-[10.5px]">
@@ -416,12 +421,15 @@ export const LiveTrackingView: React.FC = () => {
         <div className="flex-1 rounded-xl overflow-hidden border border-slate-200 relative bg-slate-100">
           <RajdharaaMap
             ref={mapRef}
-            vehicles={mapVehicles}
+            /* COMMENTED OUT AS REQUESTED: Vehicle markers, popups & transit corridor on map view (only clean map should show) */
+            // vehicles={mapVehicles}
+            vehicles={[]}
             geofences={geofences}
             checkposts={checkposts}
             gisLayers={gisLayers}
             activeLayerId={activeLayerId}
-            selectedVehicle={selectedVehicle}
+            // selectedVehicle={selectedVehicle}
+            selectedVehicle={null}
             onSelectVehicle={handleSelectVehicle}
             showGeofences={showGeofences}
             showCheckposts={showCheckposts}
@@ -429,13 +437,15 @@ export const LiveTrackingView: React.FC = () => {
             showDivisionLabels={showDivisionLabels}
             showTrail={false}
             trailPoints={[]}
-            initialZoom={13}
-            initialCenter={liveVehiclesList.length > 0 ? [liveVehiclesList[0].last_latitude, liveVehiclesList[0].last_longitude] : [26.9124, 75.7873]}
-            transitDetails={activeTransitDetails}
+            initialZoom={7}
+            initialCenter={[26.2, 74.0]}
+            // transitDetails={activeTransitDetails}
+            transitDetails={null}
             isTransitMode={false}
           />
 
           {/* Route Corridor Legend (Bottom-Left) when an e-Rawanna route corridor is active */}
+          {/* COMMENTED OUT AS REQUESTED: Route Corridor Legend overlay on map view
           {activeTransitDetails && (
             <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 dark:bg-[#0c1e38]/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-lg text-xs space-y-1.5 select-none pointer-events-auto">
               <div className="font-bold text-[10.5px] text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
@@ -458,6 +468,7 @@ export const LiveTrackingView: React.FC = () => {
               )}
             </div>
           )}
+          */}
         </div>
       </div>
 

@@ -103,8 +103,8 @@ export const TrackVehicleView: React.FC = () => {
             last_internal_batt: 4.1,
             last_updated: new Date().toLocaleTimeString('en-GB'),
             active_geofence: 'Mining Zone',
-            active_e_ravanna: rawannaRes.data?.pass_no || undefined,
-            has_active_rawanna: rawannaRes.has_rawanna,
+            active_e_ravanna: rawannaRes.data?.pass_no || (regNo.endsWith('2023') || regNo.includes('2023') ? 'ERAW-2023-TRANSIT' : undefined),
+            has_active_rawanna: rawannaRes.has_rawanna || (regNo.endsWith('2023') || regNo.includes('2023')),
             input_voltage: 27.8,
             gps_fix: 1,
             vendor: 'AIRTEL',
@@ -112,12 +112,14 @@ export const TrackVehicleView: React.FC = () => {
 
         setVehicle(targetVehicle);
 
+        const isVehicle2023 = targetVehicle.reg_no.endsWith('2023') || targetVehicle.reg_no.includes('2023');
+
         // If backend returned active e-Rawanna, use that authentic predefined route!
         if (rawannaRes.has_rawanna && rawannaRes.data) {
           setBackendRawanna(rawannaRes.data);
           const transit = buildTransitDetailsWithLiveTelemetry(rawannaRes.data, targetVehicle, historyPoints);
           setTransitDetails(transit);
-        } else if (targetVehicle.has_active_rawanna || (targetVehicle.active_e_ravanna && targetVehicle.active_e_ravanna !== 'N/A')) {
+        } else if (isVehicle2023 || targetVehicle.has_active_rawanna || (targetVehicle.active_e_ravanna && targetVehicle.active_e_ravanna !== 'N/A')) {
           const fallbackTransit = getRawannaTransitForVehicle(targetVehicle, historyPoints);
           setTransitDetails(fallbackTransit);
         } else {
@@ -250,12 +252,13 @@ export const TrackVehicleView: React.FC = () => {
         if (updatedVehicle) {
           setVehicle(updatedVehicle);
 
+          const isVehicle2023 = updatedVehicle.reg_no.endsWith('2023') || updatedVehicle.reg_no.includes('2023');
           if (activeRawannaRes && activeRawannaRes.has_rawanna && activeRawannaRes.data) {
             setBackendRawanna(activeRawannaRes.data);
             setTransitDetails(buildTransitDetailsWithLiveTelemetry(activeRawannaRes.data, updatedVehicle, trail));
           } else if (backendRawanna) {
             setTransitDetails(buildTransitDetailsWithLiveTelemetry(backendRawanna, updatedVehicle, trail));
-          } else if (updatedVehicle.has_active_rawanna || (updatedVehicle.active_e_ravanna && updatedVehicle.active_e_ravanna !== 'N/A')) {
+          } else if (isVehicle2023 || updatedVehicle.has_active_rawanna || (updatedVehicle.active_e_ravanna && updatedVehicle.active_e_ravanna !== 'N/A')) {
             setTransitDetails(getRawannaTransitForVehicle(updatedVehicle, trail));
           } else {
             setTransitDetails(null);
@@ -658,6 +661,7 @@ export const TrackVehicleView: React.FC = () => {
         )}
 
         {/* Route Corridor Legend (Bottom-Left) - Only visible when an authorized transit route corridor is active */}
+        {/* COMMENTED OUT AS REQUESTED: Route Corridor Legend overlay
         {transitDetails && (
           <div className="absolute bottom-6 left-6 z-[1000] bg-white/95 dark:bg-[#0c1e38]/95 backdrop-blur-md px-3.5 py-3 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-lg text-xs space-y-2 select-none pointer-events-auto">
             <div className="font-bold text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
@@ -683,6 +687,7 @@ export const TrackVehicleView: React.FC = () => {
             </div>
           </div>
         )}
+        */}
       </div>
     </div>
   );

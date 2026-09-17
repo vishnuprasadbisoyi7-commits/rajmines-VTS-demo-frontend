@@ -593,6 +593,7 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
 
         // Popup content: Shows Lessee & Consignee pass card if transitDetails active (Image 1), else standard
         let popupHtml = '';
+        /* COMMENTED OUT AS REQUESTED: Lessee & Consignee map popup card
         if (transitDetails && (transitDetails.vehicle_reg_no === vehicle.reg_no || isTransitMode)) {
           popupHtml = `
             <div style="padding: 12px 14px; min-width: 220px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
@@ -620,6 +621,8 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
             </div>
           `;
         } else {
+        */
+        if (!isTransitMode) {
           const rawannaText =
             vehicle.active_e_ravanna && vehicle.active_e_ravanna !== 'N/A'
               ? `e-Rawanna: ${vehicle.active_e_ravanna}`
@@ -640,6 +643,7 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
             </div>
           `;
         }
+        /* } */
 
         const position: [number, number] = [vehicle.last_latitude, vehicle.last_longitude];
 
@@ -651,37 +655,43 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
           }
           marker.setLatLng(position);
           marker.setIcon(customIcon);
-          marker.setPopupContent(popupHtml);
+          if (popupHtml) {
+            marker.setPopupContent(popupHtml);
+          } else {
+            marker.unbindPopup();
+          }
         } else {
           marker = L.marker(position, { icon: customIcon }).addTo(map);
-          marker.bindPopup(popupHtml, {
-            className: 'production-vehicle-leaflet-popup',
-            offset: [0, -18],
-            closeButton: false,
-            autoPan: false,
-          });
+          if (popupHtml) {
+            marker.bindPopup(popupHtml, {
+              className: 'production-vehicle-leaflet-popup',
+              offset: [0, -18],
+              closeButton: false,
+              autoPan: false,
+            });
 
-          marker.on('popupopen', () => {
-            const btn = document.getElementById(`close-popup-${vehicle.reg_no}`);
-            if (btn) {
-              btn.onclick = (e) => {
-                e.stopPropagation();
-                marker.closePopup();
-              };
-            }
-          });
+            marker.on('popupopen', () => {
+              const btn = document.getElementById(`close-popup-${vehicle.reg_no}`);
+              if (btn) {
+                btn.onclick = (e) => {
+                  e.stopPropagation();
+                  marker.closePopup();
+                };
+              }
+            });
 
-          marker.on('click', () => {
-            onSelectVehicle(vehicle);
-            marker.openPopup();
-          });
+            marker.on('click', () => {
+              onSelectVehicle(vehicle);
+              marker.openPopup();
+            });
+          }
           currentMarkers.set(vehicle.reg_no, marker);
         }
 
         marker.setZIndexOffset(2000);
 
-        // Auto-open popup if selected vehicle (skip in replay mode to keep video view clear)
-        if (isSelected && !isReplayMode) {
+        // Auto-open popup if selected vehicle (skip in replay mode or if no popup content)
+        if (isSelected && !isReplayMode && popupHtml) {
           setTimeout(() => {
             if (!marker.isPopupOpen()) {
               marker.openPopup();
@@ -1188,7 +1198,7 @@ export const RajdharaaMap = forwardRef<RajdharaaMapHandle, RajdharaaMapProps>(
 
         {/* Production-matching attribution footer bar */}
         <div className="absolute bottom-0 left-0 right-0 z-[800] pointer-events-none flex items-center justify-between px-3 py-1 bg-white/90 backdrop-blur-xs text-[11px] text-slate-700 font-sans border-t border-slate-200/70">
-          <div className="font-normal">Esri | TomTom | Garmin | METI/NASA | USGS</div>
+          <div className="font-normal">Esri | TomTom | Garmin | FAO | NOAA | USGS</div>
           <div className="font-normal">Powered by Esri</div>
         </div>
       </div>

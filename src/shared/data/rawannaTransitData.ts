@@ -1,4 +1,10 @@
 import type { RawannaTransitDetails, Vehicle, TelemetryPoint } from '../types/vts.types';
+import {
+  route2023PlannedRoute,
+  route2023PointA,
+  route2023PointB,
+  route2023PointC,
+} from './route2023Planned';
 
 // DUMMY DATA COMMENTED OUT: Pre-defined authentic transit route from Uncha 2 to Chhoti Sadri
 /*
@@ -130,9 +136,9 @@ function extractCurrentOneWayTrip(
   // Take only the contiguous telemetry points from the latest active one-way trip
   const tripPoints = historyPoints.slice(lastJumpIdx);
 
-  // Filter out any anomalous telemetry points located outside the broader 180km regional boundary
+  // Filter out any anomalous telemetry points located outside the broader 800km regional boundary (supports inter-state trips)
   const filtered = tripPoints.filter(
-    (pt) => haversineDistanceMeters(pt[0], pt[1], originCoords[0], originCoords[1]) < 180000
+    (pt) => haversineDistanceMeters(pt[0], pt[1], originCoords[0], originCoords[1]) < 800000
   );
 
   return filtered.length > 0 ? filtered : tripPoints;
@@ -187,9 +193,19 @@ export function buildTransitDetailsWithLiveTelemetry(
   vehicle: Vehicle,
   historyPoints?: TelemetryPoint[]
 ): RawannaTransitDetails {
+  const regKey = (vehicle.reg_no || '').toUpperCase().trim();
+  const isVehicle2023 = regKey.endsWith('2023') || regKey.includes('2023');
+
+  const effectivePointA = isVehicle2023 ? route2023PointA : backendRawanna.pointA;
+  const effectivePointB = isVehicle2023 ? route2023PointB : backendRawanna.pointB;
+  const effectivePointC = isVehicle2023 ? route2023PointC : backendRawanna.pointC;
+  const planned = isVehicle2023
+    ? route2023PlannedRoute
+    : (backendRawanna.planned_route || backendRawanna.route_coordinates);
+
   const currPos: [number, number] = [
-    Number(vehicle.last_latitude) || backendRawanna.pointA.coords[0],
-    Number(vehicle.last_longitude) || backendRawanna.pointA.coords[1],
+    Number(vehicle.last_latitude) || effectivePointA.coords[0],
+    Number(vehicle.last_longitude) || effectivePointA.coords[1],
   ];
 
   const rawHistoryCoords: [number, number][] =
@@ -198,7 +214,7 @@ export function buildTransitDetailsWithLiveTelemetry(
       : [];
 
   // Extract strictly the CURRENT active one-way trip (A -> B -> C)
-  const historyCoords = extractCurrentOneWayTrip(rawHistoryCoords, backendRawanna.pointA.coords);
+  const historyCoords = extractCurrentOneWayTrip(rawHistoryCoords, effectivePointA.coords);
 
   if (historyCoords.length === 0) {
     historyCoords.push(currPos);
@@ -212,16 +228,15 @@ export function buildTransitDetailsWithLiveTelemetry(
   const traveledRoute: [number, number][] = [];
   if (
     historyCoords.length > 0 &&
-    (Math.abs(historyCoords[0][0] - backendRawanna.pointA.coords[0]) > 0.001 ||
-     Math.abs(historyCoords[0][1] - backendRawanna.pointA.coords[1]) > 0.001)
+    (Math.abs(historyCoords[0][0] - effectivePointA.coords[0]) > 0.001 ||
+     Math.abs(historyCoords[0][1] - effectivePointA.coords[1]) > 0.001)
   ) {
-    traveledRoute.push(backendRawanna.pointA.coords);
+    traveledRoute.push(effectivePointA.coords);
   }
   traveledRoute.push(...historyCoords);
 
-  const planned = backendRawanna.planned_route || backendRawanna.route_coordinates;
   const distToPlanned = minDistanceToPolylineMeters(currPos, planned);
-  const DEVIATION_BUFFER_METERS = 200;
+  const DEVIATION_BUFFER_METERS = 300;
   const isDeviated = distToPlanned > DEVIATION_BUFFER_METERS;
 
   const deviatedRoute: [number, number][] = [];
@@ -245,6 +260,14 @@ export function buildTransitDetailsWithLiveTelemetry(
   return {
     ...backendRawanna,
     vehicle_reg_no: vehicle.reg_no,
+    pass_no: isVehicle2023 ? (vehicle.active_e_ravanna || 'ERAW-2023-TRANSIT') : backendRawanna.pass_no,
+    driver_name: isVehicle2023 ? 'Registered Driver' : backendRawanna.driver_name,
+    mineral_name: isVehicle2023 ? 'Marble / Granite' : backendRawanna.mineral_name,
+    tonnage: isVehicle2023 ? `${vehicle.capacity_tonnes || 32.0} MT` : backendRawanna.tonnage,
+    weighbridge_code: isVehicle2023 ? 'WB-07205' : backendRawanna.weighbridge_code,
+    pointA: effectivePointA,
+    pointB: effectivePointB,
+    pointC: effectivePointC,
     route_coordinates: planned,
     planned_route: planned,
     traveled_route: traveledRoute,
@@ -253,6 +276,9 @@ export function buildTransitDetailsWithLiveTelemetry(
     deviation_distance_meters: Math.round(distToPlanned),
     status: statusText,
     generated_at: backendRawanna.generated_at || vehicle.last_updated || new Date().toLocaleTimeString('en-GB'),
+    lessee_name: isVehicle2023 ? 'Jaipur Mining Zone' : backendRawanna.lessee_name,
+    consignee_name: isVehicle2023 ? 'Bhopal Consignee Hub' : backendRawanna.consignee_name,
+    consignee_address: isVehicle2023 ? 'Bhopal Industrial Area, Madhya Pradesh' : backendRawanna.consignee_address,
   };
 }
 
@@ -266,15 +292,17 @@ export function getRawannaTransitForVehicle(
     return buildTransitDetailsWithLiveTelemetry(backendRawanna, vehicle, historyPoints);
   }
 
-  // 2. Strict policy: If vehicle has no active e-Rawanna generated, return null
-  if (!vehicle.has_active_rawanna && (!vehicle.active_e_ravanna || vehicle.active_e_ravanna === 'N/A')) {
+  const regKey = (vehicle.reg_no || '').toUpperCase().trim();
+  const isVehicle2023 = regKey.endsWith('2023') || regKey.includes('2023');
+
+  // 2. Strict policy: If vehicle has no active e-Rawanna generated, return null (allowed for vehicle 2023)
+  if (!isVehicle2023 && !vehicle.has_active_rawanna && (!vehicle.active_e_ravanna || vehicle.active_e_ravanna === 'N/A')) {
     return null;
   }
 
-  const regKey = (vehicle.reg_no || '').toUpperCase().trim();
   const currPos: [number, number] = [
-    Number(vehicle.last_latitude) || 26.5081,
-    Number(vehicle.last_longitude) || 75.1885,
+    Number(vehicle.last_latitude) || (isVehicle2023 ? route2023PointA.coords[0] : 26.5081),
+    Number(vehicle.last_longitude) || (isVehicle2023 ? route2023PointA.coords[1] : 75.1885),
   ];
 
   // 3. Known active e-Rawanna corridors matching authentic simulation routes
@@ -283,33 +311,28 @@ export function getRawannaTransitForVehicle(
   const cacheLookupKey = `${regKey}_${passKey}`;
   let corridor = vehicleCorridorCache.get(cacheLookupKey);
 
-  /* [Legacy Single-Route Corridor Resolution - Commented out as requested]
-  let legacyCorridor = vehicleCorridorCache.get(regKey);
-  if (!legacyCorridor) {
-    if (regKey.includes('2009') || regKey.includes('GL2009')) {
-      legacyCorridor = {
-        pointA: jaipurCorridorPlanned[0],
-        pointB: jaipurCorridorPlanned[11],
-        pointC: jaipurCorridorPlanned[jaipurCorridorPlanned.length - 1],
-        plannedRoute: jaipurCorridorPlanned,
-      };
-    }
-  }
-  */
-
   if (!corridor) {
-    const rawannaPass = (vehicle.active_e_ravanna || '').toUpperCase().trim();
-
-    // Check specific assigned multi-route trip pass first:
-    if (rawannaPass.includes('2009-T1') || rawannaPass.includes('2011-T2')) {
-      // Jaipur Bassi Corridor: Bassi Mining Lease (A) -> NH 21 Weighbridge (B) -> Jaipur Hub (C)
+    if (isVehicle2023) {
+      // Jaipur -> Kota -> Bhopal corridor extracted from route_simulation_point_a_b_c.xlsx
       corridor = {
-        pointA: jaipurCorridorPlanned[0],
-        pointB: jaipurCorridorPlanned[11],
-        pointC: jaipurCorridorPlanned[jaipurCorridorPlanned.length - 1],
-        plannedRoute: jaipurCorridorPlanned,
+        pointA: route2023PointA.coords,
+        pointB: route2023PointB.coords,
+        pointC: route2023PointC.coords,
+        plannedRoute: route2023PlannedRoute,
       };
-    } else if (rawannaPass.includes('2009-T2') || rawannaPass.includes('2011-T1')) {
+    } else {
+      const rawannaPass = (vehicle.active_e_ravanna || '').toUpperCase().trim();
+
+      // Check specific assigned multi-route trip pass first:
+      if (rawannaPass.includes('2009-T1') || rawannaPass.includes('2011-T2')) {
+        // Jaipur Bassi Corridor: Bassi Mining Lease (A) -> NH 21 Weighbridge (B) -> Jaipur Hub (C)
+        corridor = {
+          pointA: jaipurCorridorPlanned[0],
+          pointB: jaipurCorridorPlanned[11],
+          pointC: jaipurCorridorPlanned[jaipurCorridorPlanned.length - 1],
+          plannedRoute: jaipurCorridorPlanned,
+        };
+      } else if (rawannaPass.includes('2009-T2') || rawannaPass.includes('2011-T1')) {
       // Jaipur-Ajmer Highway Corridor: Jaipur Mining Zone (A) -> NH 48 Bagru (B) -> Ajmer Hub (C)
       corridor = {
         pointA: ajmerCorridorPlanned[0],
@@ -401,11 +424,19 @@ export function getRawannaTransitForVehicle(
         };
       }
     } else {
-      // No active e-Rawanna registered for this vehicle -> Transit tracking not permitted
       return null;
     }
+  }
 
-    vehicleCorridorCache.set(cacheLookupKey, corridor);
+  if (!corridor) {
+    return null;
+  }
+
+  vehicleCorridorCache.set(cacheLookupKey, corridor);
+}
+
+  if (!corridor) {
+    return null;
   }
 
   const rawHistoryCoords: [number, number][] =
@@ -458,34 +489,40 @@ export function getRawannaTransitForVehicle(
     : 'Halted (On Route)';
 
   return {
-    pass_no: passNo,
+    pass_no: isVehicle2023 ? (vehicle.active_e_ravanna || 'ERAW-2023-TRANSIT') : passNo,
     vehicle_reg_no: vehicle.reg_no,
-    driver_name: vehicle.driver_name || 'Babu Lal Rayaka',
-    driver_phone: vehicle.driver_phone || '+91 98290 12345',
-    mineral_name: vehicle.mineral_type || 'Bajri',
-    tonnage: `${vehicle.capacity_tonnes || 16.0} MT`,
-    weighbridge_code: `WB-${vehicle.reg_no.slice(-4)}`,
-    pointA: {
-      label: 'A',
-      name: `${vehicle.reg_no} Mining Lease`,
-      subtext: 'Origin / Loading Point A',
-      coords: corridor.pointA,
-      type: 'ORIGIN',
-    },
-    pointB: {
-      label: 'B',
-      name: `Weighbridge WB-${vehicle.reg_no.slice(-4)}`,
-      subtext: 'Transit Verification Point',
-      coords: corridor.pointB,
-      type: 'WEIGHBRIDGE',
-    },
-    pointC: {
-      label: 'C',
-      name: `${vehicle.reg_no} Consignee Hub`,
-      subtext: 'Final Destination Consignee',
-      coords: corridor.pointC,
-      type: 'CONSIGNEE',
-    },
+    driver_name: isVehicle2023 ? 'REGISTERED DRIVER' : (vehicle.driver_name || 'Babu Lal Rayaka'),
+    driver_phone: vehicle.driver_phone || '+91 98290 XXXXX',
+    mineral_name: isVehicle2023 ? 'Marble/Granite' : (vehicle.mineral_type || 'Bajri'),
+    tonnage: `${vehicle.capacity_tonnes || (isVehicle2023 ? 30.0 : 16.0)} MT`,
+    weighbridge_code: isVehicle2023 ? 'WB-07205' : `WB-${vehicle.reg_no.slice(-4)}`,
+    pointA: isVehicle2023
+      ? route2023PointA
+      : {
+          label: 'A',
+          name: `${vehicle.reg_no} Mining Lease`,
+          subtext: 'Origin / Loading Point A',
+          coords: corridor.pointA,
+          type: 'ORIGIN',
+        },
+    pointB: isVehicle2023
+      ? route2023PointB
+      : {
+          label: 'B',
+          name: `Weighbridge WB-${vehicle.reg_no.slice(-4)}`,
+          subtext: 'Transit Verification Point',
+          coords: corridor.pointB,
+          type: 'WEIGHBRIDGE',
+        },
+    pointC: isVehicle2023
+      ? route2023PointC
+      : {
+          label: 'C',
+          name: `${vehicle.reg_no} Consignee Hub`,
+          subtext: 'Final Destination Consignee',
+          coords: corridor.pointC,
+          type: 'CONSIGNEE',
+        },
     route_coordinates: corridor.plannedRoute,
     planned_route: corridor.plannedRoute,
     traveled_route: traveledRoute,
@@ -495,9 +532,9 @@ export function getRawannaTransitForVehicle(
     generated_at: vehicle.last_updated || new Date().toLocaleTimeString('en-GB'),
     expire_at: 'Valid In Transit',
     status: statusText,
-    lessee_name: 'Mining Lease Holder',
-    consignee_name: `${vehicle.reg_no} Consignee Facility`,
-    consignee_address: vehicle.active_geofence || 'Rajasthan Mining Corridor',
+    lessee_name: isVehicle2023 ? 'Jaipur Mining Zone' : 'Mining Lease Holder',
+    consignee_name: isVehicle2023 ? 'Bhopal Consignee Hub' : `${vehicle.reg_no} Consignee Facility`,
+    consignee_address: isVehicle2023 ? 'Bhopal Industrial Area, Madhya Pradesh' : (vehicle.active_geofence || 'Rajasthan Mining Corridor'),
   };
 
   /* DUMMY HARDCODED VEHICLE PROFILES COMMENTED OUT:

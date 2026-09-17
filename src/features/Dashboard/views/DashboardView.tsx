@@ -51,15 +51,15 @@ export const DashboardView: React.FC = () => {
       iconColor: '#9333ea',
       borderColor: '#f3e8ff',
     },
-    {
-      title: 'Total Mines',
-      value: '0',
-      icon: Mountain,
-      color: '#2563eb', // Blue
-      iconBg: '#dbeafe',
-      iconColor: '#2563eb',
-      borderColor: '#e0e7ff',
-    },
+    // {
+    //   title: 'Total Mines',
+    //   value: '0',
+    //   icon: Mountain,
+    //   color: '#2563eb', // Blue
+    //   iconBg: '#dbeafe',
+    //   iconColor: '#2563eb',
+    //   borderColor: '#e0e7ff',
+    // },
     {
       title: 'Active Vehicles',
       value: (65972).toLocaleString(),
